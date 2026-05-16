@@ -1,41 +1,57 @@
 import { useState } from "react";
+import { Routes, Route } from "react-router-dom";
 
-export default function App() {
+import AdminLogin from "./pages/AdminLogin";
+import Dashboard from "./pages/Dashboard";
+
+function ChatWidget() {
+
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
 
   const sendMessage = async () => {
+
     if (!input.trim()) return;
 
     const userMsg = input;
 
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: userMsg }
+    ]);
+
     setInput("");
 
-    const res = await fetch("http://127.0.0.1:8000/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        message: userMsg,
-        session_id: "user1"
-      })
-    });
+    const res = await fetch(
+      "http://127.0.0.1:8000/chat",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: userMsg,
+          session_id: "user1"
+        })
+      }
+    );
 
     const data = await res.json();
 
     setMessages((prev) => [
       ...prev,
-      { role: "assistant", text: data.response }
+      {
+        role: "assistant",
+        text: data.response
+      }
     ]);
   };
 
   return (
     <div>
 
-      {/* ================= FLOATING BUTTON ================= */}
+      {/* FLOATING BUTTON */}
       <div
         onClick={() => setOpen(true)}
         style={{
@@ -58,7 +74,7 @@ export default function App() {
         💬
       </div>
 
-      {/* ================= CHAT WINDOW ================= */}
+      {/* CHAT WINDOW */}
       {open && (
         <div
           style={{
@@ -116,7 +132,10 @@ export default function App() {
               <div
                 key={i}
                 style={{
-                  textAlign: msg.role === "user" ? "right" : "left",
+                  textAlign:
+                    msg.role === "user"
+                      ? "right"
+                      : "left",
                   margin: "8px 0"
                 }}
               >
@@ -126,8 +145,13 @@ export default function App() {
                     padding: "8px 12px",
                     borderRadius: "10px",
                     background:
-                      msg.role === "user" ? "#2563eb" : "#e5e7eb",
-                    color: msg.role === "user" ? "white" : "black"
+                      msg.role === "user"
+                        ? "#2563eb"
+                        : "#e5e7eb",
+                    color:
+                      msg.role === "user"
+                        ? "white"
+                        : "black"
                   }}
                 >
                   {msg.text}
@@ -136,11 +160,18 @@ export default function App() {
             ))}
           </div>
 
-          {/* INPUT AREA */}
-          <div style={{ display: "flex", padding: "10px" }}>
+          {/* INPUT */}
+          <div
+            style={{
+              display: "flex",
+              padding: "10px"
+            }}
+          >
             <input
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) =>
+                setInput(e.target.value)
+              }
               placeholder="Ask something..."
               style={{
                 flex: 1,
@@ -165,8 +196,33 @@ export default function App() {
               Send
             </button>
           </div>
+
         </div>
       )}
     </div>
+  );
+}
+
+export default function App() {
+
+  return (
+    <Routes>
+
+      <Route
+        path="/"
+        element={<ChatWidget />}
+      />
+
+      <Route
+        path="/admin"
+        element={<AdminLogin />}
+      />
+
+      <Route
+        path="/dashboard"
+        element={<Dashboard />}
+      />
+
+    </Routes>
   );
 }
