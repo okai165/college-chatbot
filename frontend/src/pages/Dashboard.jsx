@@ -54,6 +54,11 @@ function Dashboard() {
           <h3>Total Messages</h3>
           <p>{stats.total_messages}</p>
         </div>
+        
+        <div style={cardStyle}>
+            <h3>Avg Messages / Session</h3>
+            <p>{stats.avg_messages_per_session}</p>
+        </div>
 
       </div>
 

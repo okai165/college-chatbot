@@ -1,25 +1,67 @@
 import sys
+from pathlib import Path
+
 from pypdf import PdfReader
 from sqlalchemy import text
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.db.database import engine
-from app.rag.chunker import chunk_text
 from app.rag.embedder import generate_embedding
+
+
+# =========================
+# TEXT SPLITTER (IMPROVED)
+# =========================
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,
+    chunk_overlap=100,
+    separators=[
+        "\n\n",
+        "\n",
+        ". ",
+        " ",
+        ""
+    ]
+)
 
 
 # =========================
 # EXTRACT TEXT FROM PDF
 # =========================
 def extract_text_from_pdf(pdf_path):
+
     reader = PdfReader(pdf_path)
+
     text_data = ""
 
     for page in reader.pages:
+
         page_text = page.extract_text()
+
         if page_text:
             text_data += page_text + "\n"
 
     return text_data
+
+
+# =========================
+# CHUNK TEXT
+# =========================
+def chunk_text(text):
+
+    chunks = splitter.split_text(text)
+
+    # remove tiny/noisy chunks
+    cleaned_chunks = []
+
+    for chunk in chunks:
+
+        chunk = chunk.strip()
+
+        if len(chunk) > 50:
+            cleaned_chunks.append(chunk)
+
+    return cleaned_chunks
 
 
 # =========================
@@ -28,9 +70,15 @@ def extract_text_from_pdf(pdf_path):
 def process_pdf(pdf_path):
 
     print("📄 Reading PDF...")
+
     text_data = extract_text_from_pdf(pdf_path)
 
+    if not text_data.strip():
+        print("❌ No text extracted from PDF")
+        return
+
     print("✂ Chunking text...")
+
     chunks = chunk_text(text_data)
 
     print(f"🔢 Total chunks: {len(chunks)}")
@@ -43,14 +91,19 @@ def process_pdf(pdf_path):
 
             embedding = generate_embedding(chunk)
 
+            embedding_str = "[" + ",".join(map(str, embedding)) + "]"
+
             conn.execute(
                 text("""
                     INSERT INTO documents (content, embedding)
-                    VALUES (:content, :embedding)
+                    VALUES (
+                        :content,
+                        CAST(:embedding AS vector)
+                    )
                 """),
                 {
                     "content": chunk,
-                    "embedding": embedding
+                    "embedding": embedding_str
                 }
             )
 
@@ -60,8 +113,6 @@ def process_pdf(pdf_path):
 # =========================
 # RUN FROM COMMAND LINE
 # =========================
-from pathlib import Path
-
 if __name__ == "__main__":
 
     if len(sys.argv) < 2:
@@ -70,14 +121,19 @@ if __name__ == "__main__":
 
     path = Path(sys.argv[1])
 
-    # CASE 1: single PDF
-    if path.is_file() and path.suffix == ".pdf":
+    # =========================
+    # SINGLE PDF
+    # =========================
+    if path.is_file() and path.suffix.lower() == ".pdf":
+
         process_pdf(str(path))
 
-    # CASE 2: folder (MULTIPLE PDFs)
+    # =========================
+    # FOLDER OF PDFs
+    # =========================
     elif path.is_dir():
 
-        pdf_files = list(path.rglob("*.pdf"))  # IMPORTANT FIX
+        pdf_files = list(path.rglob("*.pdf"))
 
         if not pdf_files:
             print("❌ No PDF files found")
@@ -86,10 +142,15 @@ if __name__ == "__main__":
         print(f"📁 Found {len(pdf_files)} PDFs")
 
         for pdf in pdf_files:
+
             try:
+
                 print(f"\n📄 Ingesting: {pdf.name}")
+
                 process_pdf(str(pdf))
+
             except Exception as e:
+
                 print(f"❌ Failed {pdf.name}: {e}")
 
         print("\n🎉 All PDFs ingested successfully!")
