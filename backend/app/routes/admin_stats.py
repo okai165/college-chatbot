@@ -34,3 +34,14 @@ def get_stats(username: str = Depends(require_admin)):
         "active_sessions": active_sessions,
         "total_messages": total_messages
     }
+@router.get("/recent-chats")
+def recent_chats():
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT session_id, role, message, created_at
+            FROM chat_history
+            ORDER BY created_at DESC
+            LIMIT 20
+        """))
+
+        return [dict(row._mapping) for row in result]
