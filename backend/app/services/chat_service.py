@@ -27,7 +27,6 @@ def get_chat_history(session_id, limit=3):
 
         rows = result.fetchall()
 
-    # oldest → newest
     return rows[::-1]
 
 
@@ -36,55 +35,64 @@ def get_chat_history(session_id, limit=3):
 # =========================
 def generate_response(user_query, session_id):
 
-    # =========================
-    # RETRIEVE DOCUMENTS
-    # =========================
-    docs = retrieve_similar_chunks(user_query)
+    try:
 
-    print("RETRIEVED DOCS:", docs)
+        # =========================
+        # RETRIEVE DOCUMENTS
+        # =========================
+        docs = retrieve_similar_chunks(user_query)
 
-    # =========================
-    # BUILD CONTEXT
-    # =========================
-    context_chunks = [
-        d["content"].strip()
-        for d in docs
-        if d.get("content")
-    ]
+        print("\n========== RETRIEVED DOCS ==========")
+        print(docs)
 
-    context = "\n\n".join(context_chunks)
+        # =========================
+        # BUILD CONTEXT
+        # =========================
+        context_chunks = []
 
-    print("CONTEXT:", context[:500])
+        for row in docs:
 
-    # =========================
-    # STRICT GUARD
-    # =========================
-    if len(context_chunks) == 0:
+            if row.content:
 
-        return (
-            "Sorry, I cannot find relevant information "
-            "in the college documents."
-        )
+                cleaned = row.content.strip()
 
-    # =========================
-    # CHAT MEMORY
-    # =========================
-    history = get_chat_history(session_id)
+                if cleaned:
+                    context_chunks.append(cleaned)
 
-    memory_text = "\n".join(
-        [f"{h.role}: {h.message}" for h in history]
-    ) if history else ""
+        context = "\n\n".join(context_chunks)
 
-    # =========================
-    # PROMPT
-    # =========================
-    prompt = f"""
+        print("\n========== FINAL CONTEXT ==========")
+        print(context[:1000])
+
+        # =========================
+        # STRICT GUARD
+        # =========================
+        if len(context_chunks) == 0:
+
+            return (
+                "Sorry, I cannot find relevant information "
+                "in the college documents."
+            )
+
+        # =========================
+        # CHAT MEMORY
+        # =========================
+        history = get_chat_history(session_id)
+
+        memory_text = "\n".join(
+            [f"{h.role}: {h.message}" for h in history]
+        ) if history else ""
+
+        # =========================
+        # STRICT PROMPT
+        # =========================
+        prompt = f"""
 You are a strict college assistant chatbot.
 
 RULES:
 - Answer ONLY from the provided CONTEXT
 - Never use outside knowledge
-- If answer is missing from context, say exactly:
+- If answer is not present in context, say exactly:
   "Sorry, I cannot find relevant information in the college documents."
 - Keep responses short and factual
 
@@ -98,12 +106,25 @@ USER QUESTION:
 {user_query}
 """
 
-    # =========================
-    # GEMINI RESPONSE
-    # =========================
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+        print("\n========== SENDING TO GEMINI ==========\n")
 
-    return response.text
+        # =========================
+        # GEMINI RESPONSE
+        # =========================
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        print("\n========== GEMINI RESPONSE ==========\n")
+        print(response.text)
+
+        return response.text
+
+    except Exception as e:
+
+        print("\n❌ CHAT SERVICE ERROR:", e)
+
+        return (
+            "Server error occurred while processing your request."
+        )

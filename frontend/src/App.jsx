@@ -167,19 +167,30 @@ function ChatWidget() {
               padding: "10px"
             }}
           >
-            <input
-              value={input}
-              onChange={(e) =>
-                setInput(e.target.value)
-              }
-              placeholder="Ask something..."
-              style={{
-                flex: 1,
-                padding: "8px",
-                borderRadius: "6px",
-                border: "1px solid #ccc"
-              }}
-            />
+          <input
+            value={input}
+            onChange={(e) =>
+            setInput(e.target.value)
+        }
+
+        onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          sendMessage();
+        }
+      }}
+
+      placeholder="Ask something..."
+      style={{
+      flex: 1,
+      padding: "10px",
+      borderRadius: "6px",
+      border: "1px solid #ccc",
+      background: "white",
+      color: "black",
+      outline: "none",
+      fontSize: "14px"
+    }}
+  /> 
 
             <button
               onClick={sendMessage}

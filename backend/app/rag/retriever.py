@@ -1,69 +1,57 @@
 from sqlalchemy import text
-
 from app.db.database import engine
 from app.rag.embedder import generate_embedding
 
 
 # =========================
-# CONFIG
-# =========================
-TOP_K = 5
-SIMILARITY_THRESHOLD = 0.35
-
-
-# =========================
-# VECTOR RETRIEVAL
+# RETRIEVE SIMILAR CHUNKS
 # =========================
 def retrieve_similar_chunks(query: str):
 
-    # Generate embedding
-    query_embedding = generate_embedding(query)
+    try:
+        # Generate embedding
+        query_embedding = generate_embedding(query)
 
-    # Convert embedding list → pgvector string
-    query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
+        # Convert embedding list → pgvector format
+        query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
-    # Query database
-    with engine.connect() as conn:
+        with engine.connect() as conn:
 
-        result = conn.execute(
-            text("""
-                SELECT
-                    content,
-                    embedding <-> CAST(:query_embedding AS vector) AS distance
-                FROM documents
-                ORDER BY embedding <-> CAST(:query_embedding AS vector)
-                LIMIT 20
-            """),
-            {
-                "query_embedding": query_embedding_str
-            }
-        )
+            result = conn.execute(
+                text("""
+                    SELECT 
+                        content,
+                        embedding <-> CAST(:query_embedding AS vector) AS distance
+                    FROM documents
+                    ORDER BY embedding <-> CAST(:query_embedding AS vector)
+                    LIMIT 5
+                """),
+                {
+                    "query_embedding": query_embedding_str
+                }
+            )
 
-        rows = result.fetchall()
+            rows = result.fetchall()
 
-    # =========================
-    # FILTER RESULTS
-    # =========================
-    filtered_chunks = []
+        # =========================
+        # DEBUG OUTPUT
+        # =========================
+        print("\n========== RETRIEVED CHUNKS ==========\n")
 
-    for row in rows:
+        for i, row in enumerate(rows):
 
-        distance = row.distance
-        print("DISTANCE:", distance)
+            print(f"RESULT {i+1}")
+            print("DISTANCE:", row.distance)
 
-        if distance < 1.5:
+            if row.content:
+                print(row.content[:500])
 
-            filtered_chunks.append({
-                "content": row.content,
-                "score": distance
-            })
+            print("\n-----------------------------------\n")
 
-    # Sort best matches first
-    filtered_chunks = sorted(
-        filtered_chunks,
-        key=lambda x: x["score"],
-        reverse=True
-    )
+        return rows
 
-    # Return top results
-    return filtered_chunks[:TOP_K]
+    except Exception as e:
+
+        print("❌ RETRIEVER ERROR:", e)
+
+        return []
