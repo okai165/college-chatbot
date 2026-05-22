@@ -9,22 +9,39 @@ from app.rag.embedder import generate_embedding
 def retrieve_similar_chunks(query: str):
 
     try:
-        # Generate embedding
-        query_embedding = generate_embedding(query)
 
-        # Convert embedding list → pgvector format
+        # =========================
+        # EXPAND QUERY
+        # =========================
+        expanded_query = f"""
+        College academic query:
+        {query}
+
+        Related terms:
+        admission semester batch examination faculty result timetable notice
+        """
+
+        # =========================
+        # GENERATE EMBEDDING
+        # =========================
+        query_embedding = generate_embedding(expanded_query)
+
+        # Convert embedding → pgvector format
         query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
+        # =========================
+        # VECTOR SEARCH
+        # =========================
         with engine.connect() as conn:
 
             result = conn.execute(
                 text("""
-                    SELECT 
+                    SELECT
                         content,
                         embedding <-> CAST(:query_embedding AS vector) AS distance
                     FROM documents
                     ORDER BY embedding <-> CAST(:query_embedding AS vector)
-                    LIMIT 5
+                    LIMIT 15
                 """),
                 {
                     "query_embedding": query_embedding_str
@@ -40,15 +57,18 @@ def retrieve_similar_chunks(query: str):
 
         for i, row in enumerate(rows):
 
-            print(f"RESULT {i+1}")
+            print(f"\nRESULT {i+1}")
             print("DISTANCE:", row.distance)
 
             if row.content:
                 print(row.content[:500])
 
-            print("\n-----------------------------------\n")
+            print("\n-----------------------------------")
 
-        return rows
+        # =========================
+        # RETURN TOP RESULTS
+        # =========================
+        return rows[:10]
 
     except Exception as e:
 

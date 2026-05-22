@@ -2,6 +2,8 @@ from sqlalchemy import text
 from app.db.database import engine
 from app.rag.retriever import retrieve_similar_chunks
 from app.services.llm import client
+from sqlalchemy import text
+import time
 
 
 # =========================
@@ -31,62 +33,138 @@ def get_chat_history(session_id, limit=3):
 
 
 # =========================
+# FACULTY SEARCH
+# =========================
+def search_faculty(query):
+
+    with engine.connect() as conn:
+
+        result = conn.execute(
+            text("""
+                SELECT
+                    faculty_name,
+                    subject_name,
+                    time_slot,
+                    room_number
+                FROM faculty_schedule
+                WHERE
+                    LOWER(subject_name) LIKE LOWER(:query)
+                    OR LOWER(faculty_name) LIKE LOWER(:query)
+            """),
+            {
+                "query": f"%{query}%"
+            }
+        )
+
+        rows = result.fetchall()
+
+    return rows
+
+
+# =========================
 # MAIN RAG FUNCTION
 # =========================
 def generate_response(user_query, session_id):
 
-    try:
+    # =========================
+    # RETRIEVE DOCUMENTS
+    # =========================
+    docs = retrieve_similar_chunks(user_query)
 
-        # =========================
-        # RETRIEVE DOCUMENTS
-        # =========================
-        docs = retrieve_similar_chunks(user_query)
+    print("\n========== RETRIEVED DOCS ==========")
+    print(docs)
 
-        print("\n========== RETRIEVED DOCS ==========")
-        print(docs)
+    # =========================
+    # SEARCH FACULTY TABLE
+    # =========================
+    clean_query = user_query.lower()
 
-        # =========================
-        # BUILD CONTEXT
-        # =========================
-        context_chunks = []
+    keywords = [
+        "who teaches",
+        "teacher of",
+        "faculty of",
+        "timing of",
+        "time of",
+        "where is",
+        "classroom of",
+        "room of",
+        "class of"
+    ]
 
-        for row in docs:
+    for word in keywords:
+        clean_query = clean_query.replace(word, "")
 
-            if row.content:
+    clean_query = clean_query.strip()
 
-                cleaned = row.content.strip()
+    faculty_rows = search_faculty(clean_query)
 
-                if cleaned:
-                    context_chunks.append(cleaned)
+    faculty_context = ""
 
-        context = "\n\n".join(context_chunks)
+    if faculty_rows:
 
-        print("\n========== FINAL CONTEXT ==========")
-        print(context[:1000])
+        for row in faculty_rows:
 
-        # =========================
-        # STRICT GUARD
-        # =========================
-        if len(context_chunks) == 0:
+            faculty_context += f"""
+Faculty Name: {row.faculty_name}
+Subject: {row.subject_name}
+Time Slot: {row.time_slot}
+Room Number: {row.room_number}
 
-            return (
-                "Sorry, I cannot find relevant information "
-                "in the college documents."
-            )
+"""
 
-        # =========================
-        # CHAT MEMORY
-        # =========================
-        history = get_chat_history(session_id)
+    print("\n========== FACULTY CONTEXT ==========")
+    print(faculty_context)
 
-        memory_text = "\n".join(
-            [f"{h.role}: {h.message}" for h in history]
-        ) if history else ""
+    # =========================
+    # BUILD DOCUMENT CONTEXT
+    # =========================
+    context_chunks = []
 
-        # =========================
-        # STRICT PROMPT
-        # =========================
-        prompt = f"""
+    for row in docs:
+
+        if row.content:
+
+            cleaned = row.content.strip()
+
+            if cleaned:
+                context_chunks.append(cleaned)
+
+    document_context = "\n\n".join(context_chunks)
+
+    # =========================
+    # FINAL CONTEXT
+    # =========================
+    context = faculty_context + "\n\n" + document_context
+
+    print("\n========== FINAL CONTEXT ==========")
+    print(context[:1500])
+
+    # =========================
+    # STRICT GUARD
+    # =========================
+    if (
+        len(context_chunks) == 0
+        and len(faculty_rows) == 0
+    ):
+
+        return (
+            "Sorry, I cannot find relevant information "
+            "in the college documents."
+        )
+
+    # =========================
+    # CHAT MEMORY
+    # =========================
+    history = get_chat_history(session_id)
+
+    memory_text = "\n".join(
+        [f"{h.role}: {h.message}" for h in history]
+    ) if history else ""
+
+    # =========================
+    # STRICT PROMPT
+    # =========================
+    prompt = f"""
 You are a strict college assistant chatbot.
 
 RULES:
@@ -106,25 +184,33 @@ USER QUESTION:
 {user_query}
 """
 
-        print("\n========== SENDING TO GEMINI ==========\n")
+    print("\n========== SENDING TO GEMINI ==========\n")
 
-        # =========================
-        # GEMINI RESPONSE
-        # =========================
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
+    # =========================
+    # GEMINI RESPONSE WITH RETRY
+    # =========================
+    for attempt in range(3):
 
-        print("\n========== GEMINI RESPONSE ==========\n")
-        print(response.text)
+        try:
 
-        return response.text
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
 
-    except Exception as e:
+            print("\n========== GEMINI RESPONSE ==========\n")
+            print(response.text)
 
-        print("\n❌ CHAT SERVICE ERROR:", e)
+            return response.text
 
-        return (
-            "Server error occurred while processing your request."
-        )
+        except Exception as e:
+
+            print(f"\n❌ RETRY {attempt + 1}/3")
+            print(e)
+
+            time.sleep(2)
+
+    return (
+        "AI service is temporarily busy. "
+        "Please try again in a few seconds."
+    )

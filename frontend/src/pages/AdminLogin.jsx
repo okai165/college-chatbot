@@ -25,7 +25,7 @@ function AdminLogin() {
         response.data.access_token
       );
 
-      navigate("/dashboard");
+      navigate("/admin/home");
 
     } catch (err) {
 

@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
 
 import AdminLogin from "./pages/AdminLogin";
+import AdminHome from "./pages/AdminHome";
 import Dashboard from "./pages/Dashboard";
+import FacultyManager from "./pages/FacultyManager";
+import UploadDocuments from "./pages/UploadDocuments";
 
 function ChatWidget() {
 
@@ -230,8 +233,22 @@ export default function App() {
       />
 
       <Route
-        path="/dashboard"
+        path="/admin/home"
+        element={<AdminHome />}
+      />
+
+      <Route
+        path="/admin/dashboard"
         element={<Dashboard />}
+      /> 
+      <Route
+        path="/admin/faculty"
+        element={<FacultyManager />}
+      />
+
+      <Route
+        path="/admin/upload"
+        element={<UploadDocuments />}
       />
 
     </Routes>

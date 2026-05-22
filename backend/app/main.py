@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 load_dotenv()
 from app.routes.admin_auth import router as admin_auth_router
 from app.routes.admin_stats import router as admin_stats_router
+from app.routes.faculty import router as faculty_router
+from app.routes.documents import router as documents_router
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,3 +25,5 @@ app.add_middleware(
 app.include_router(admin_auth_router)
 app.include_router(chat_router)
 app.include_router(admin_stats_router)
+app.include_router(faculty_router)
+app.include_router(documents_router)
