@@ -3,121 +3,224 @@ import { useNavigate } from "react-router-dom";
 import adminApi from "../services/adminApi";
 import AdminLayout from "../components/AdminLayout";
 
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  AreaChart,
+  Area
+} from "recharts";
+
 function Dashboard() {
+
   const navigate = useNavigate();
+
   const [stats, setStats] = useState(null);
+
   const [days, setDays] = useState(1);
+
   const [error, setError] = useState(null);
-  const [isRefreshHover, setIsRefreshHover] = useState(false);
-  const [isRetryHover, setIsRetryHover] = useState(false);
+
+  const [isRefreshHover, setIsRefreshHover] =
+    useState(false);
+
+  const [isRetryHover, setIsRetryHover] =
+    useState(false);
 
   useEffect(() => {
+
     fetchStats(days);
+
   }, [days]);
 
   const fetchStats = async (d) => {
+
     try {
-      const res = await adminApi.get(`/admin/stats?days=${d}`);
+
+      const res = await adminApi.get(
+        `/admin/stats?days=${d}`
+      );
+
       setStats(res.data);
+
       setError(null);
+
     } catch (err) {
-      console.log("Error loading stats", err);
+
+      console.log(
+        "Error loading stats",
+        err
+      );
+
       if (err.response?.status === 401) {
-        setError("Authorization required. Redirecting to login...");
+
+        setError(
+          "Authorization required. Redirecting to login..."
+        );
+
         navigate("/admin");
+
       } else {
-        setError("Unable to load dashboard stats. Please try again.");
+
+        setError(
+          "Unable to load dashboard stats. Please try again."
+        );
       }
+
       setStats({
         total_sessions: 0,
         active_sessions: 0,
         total_messages: 0,
         avg_messages_per_session: 0,
+        sessions_graph: [],
+        messages_graph: [],
       });
     }
   };
 
   if (!stats && !error) {
+
     return (
       <AdminLayout>
+
         <div style={{ padding: "20px" }}>
           <h2>Loading dashboard...</h2>
         </div>
+
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout>
+
       <div style={pageStyle}>
+
         {error && (
+
           <div style={errorBannerStyle}>
+
             <div>{error}</div>
+
             <button
               onClick={() => fetchStats(days)}
-              onMouseEnter={() => setIsRetryHover(true)}
-              onMouseLeave={() => setIsRetryHover(false)}
+              onMouseEnter={() =>
+                setIsRetryHover(true)
+              }
+              onMouseLeave={() =>
+                setIsRetryHover(false)
+              }
               style={{
                 ...errorRetryButtonStyle,
-                ...(isRetryHover ? errorRetryButtonHoverStyle : {}),
+                ...(isRetryHover
+                  ? errorRetryButtonHoverStyle
+                  : {}),
               }}
             >
               Retry
             </button>
+
           </div>
+
         )}
 
         {/* ================= HEADER ================= */}
-        <div style={headerStyle}>
-          <h1 style={{ margin: 0, color: "#0f172a", fontSize: "32px" }}>Admin Dashboard</h1>
 
-          {/* FILTER */}
+        <div style={headerStyle}>
+
+          <h1 style={dashboardTitleStyle}>
+            Admin Dashboard
+          </h1>
+
           <div style={filterWrapperStyle}>
-            <span style={{ fontWeight: "600", color: "#0f172a" }}>Range:</span>
+
+            <span style={filterTextStyle}>
+              Range:
+            </span>
 
             <select
               value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
+              onChange={(e) =>
+                setDays(Number(e.target.value))
+              }
               style={selectStyle}
             >
-              <option value={1}>Last 1 day</option>
-              <option value={3}>Last 3 days</option>
-              <option value={7}>Last 7 days</option>
-              <option value={30}>Last 30 days</option>
+
+              <option value={1}>
+                Last 1 day
+              </option>
+
+              <option value={3}>
+                Last 3 days
+              </option>
+
+              <option value={7}>
+                Last 7 days
+              </option>
+
+              <option value={30}>
+                Last 30 days
+              </option>
+
             </select>
+
             <button
-              onClick={() => fetchStats(days)}
-              onMouseEnter={() => setIsRefreshHover(true)}
-              onMouseLeave={() => setIsRefreshHover(false)}
+              onClick={() =>
+                fetchStats(days)
+              }
+              onMouseEnter={() =>
+                setIsRefreshHover(true)
+              }
+              onMouseLeave={() =>
+                setIsRefreshHover(false)
+              }
               style={{
                 ...refreshButtonStyle,
-                ...(isRefreshHover ? refreshButtonHoverStyle : {}),
+                ...(isRefreshHover
+                  ? refreshButtonHoverStyle
+                  : {}),
               }}
             >
               Refresh
             </button>
+
           </div>
+
         </div>
 
         {/* ================= STATS ================= */}
+
         <div style={statsContainerStyle}>
 
           <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>Total Sessions</h3>
+            <h3 style={cardTitleStyle}>
+              Total Sessions
+            </h3>
+
             <p style={cardValueStyle}>
               {stats.total_sessions}
             </p>
           </div>
 
           <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>Active Sessions</h3>
+            <h3 style={cardTitleStyle}>
+              Active Sessions
+            </h3>
+
             <p style={cardValueStyle}>
               {stats.active_sessions}
             </p>
           </div>
 
           <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>Total Messages</h3>
+            <h3 style={cardTitleStyle}>
+              Total Messages
+            </h3>
+
             <p style={cardValueStyle}>
               {stats.total_messages}
             </p>
@@ -135,10 +238,112 @@ function Dashboard() {
 
         </div>
 
+        {/* ================= CHARTS ================= */}
+
+        <div style={chartsWrapperStyle}>
+
+          {/* SESSIONS GRAPH */}
+
+          <div style={chartCardStyle}>
+
+            <h2 style={chartTitleStyle}>
+              Sessions Trend
+            </h2>
+
+            <ResponsiveContainer
+              width="100%"
+              height={300}
+            >
+
+              <LineChart
+                data={stats.sessions_graph}
+              >
+
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                />
+
+                <XAxis dataKey="day" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                />
+
+              </LineChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+          {/* MESSAGES GRAPH */}
+
+          <div style={chartCardStyle}>
+
+            <h2 style={chartTitleStyle}>
+              Messages Trend
+            </h2>
+
+            <ResponsiveContainer
+              width="100%"
+              height={300}
+            >
+
+              <AreaChart
+                data={stats.messages_graph}
+              >
+
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                />
+
+                <XAxis dataKey="day" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Area
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#16a34a"
+                  fill="#86efac"
+                />
+
+              </AreaChart>
+
+            </ResponsiveContainer>
+
+          </div>
+
+        </div>
+
       </div>
+
     </AdminLayout>
   );
 }
+
+/* ================= STYLES ================= */
+
+const pageStyle = {
+  padding: "20px",
+};
+
+const dashboardTitleStyle = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: "34px",
+  fontWeight: "700",
+  cursor: "pointer",
+  transition: "0.3s",
+};
 
 const errorBannerStyle = {
   width: "100%",
@@ -148,10 +353,6 @@ const errorBannerStyle = {
   background: "#fee2e2",
   color: "#991b1b",
   border: "1px solid #fecaca",
-};
-
-const pageStyle = {
-  padding: "20px",
 };
 
 const headerStyle = {
@@ -168,26 +369,38 @@ const filterWrapperStyle = {
   gap: "10px",
 };
 
+const filterTextStyle = {
+  fontWeight: "600",
+  color: "#0f172a",
+};
+
 const selectStyle = {
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: "1px solid #d1d5db",
-  outline: "none",
-  cursor: "pointer",
+  padding: "10px 14px",
+  borderRadius: "10px",
+  border: "1px solid #cbd5e1",
   background: "white",
-  color: "#111827",
+  color: "#0f172a", // IMPORTANT
+  fontWeight: "600",
+  fontSize: "15px",
+  cursor: "pointer",
   minWidth: "170px",
+  outline: "none",
 };
 
 const refreshButtonStyle = {
-  marginLeft: "12px",
   padding: "10px 16px",
-  borderRadius: "8px",
+  borderRadius: "10px",
   border: "none",
   background: "#2563eb",
   color: "white",
   fontWeight: "600",
   cursor: "pointer",
+  transition: "0.3s",
+};
+
+const refreshButtonHoverStyle = {
+  background: "#1d4ed8",
+  transform: "translateY(-2px)",
 };
 
 const errorRetryButtonStyle = {
@@ -199,56 +412,62 @@ const errorRetryButtonStyle = {
   color: "white",
   fontWeight: "600",
   cursor: "pointer",
-  transition: "all 0.2s ease",
-};
-
-const refreshButtonHoverStyle = {
-  background: "#1d4ed8",
-  transform: "translateY(-1px)",
-  boxShadow: "0 8px 18px rgba(37, 99, 235, 0.25)",
 };
 
 const errorRetryButtonHoverStyle = {
   background: "#1d4ed8",
-  transform: "translateY(-1px)",
-  boxShadow: "0 8px 18px rgba(37, 99, 235, 0.25)",
 };
 
 const statsContainerStyle = {
-  display: "flex",
-  gap: "16px",
-  marginTop: "25px",
-  flexWrap: "nowrap",
-  overflowX: "auto",
-  paddingBottom: "10px",
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit,minmax(220px,1fr))",
+  gap: "20px",
+  marginTop: "30px",
 };
 
 const cardStyle = {
-  width: "220px",
-  height: "120px",
   background: "white",
-  borderRadius: "12px",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  textAlign: "center",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+  borderRadius: "16px",
+  padding: "25px",
+  boxShadow:
+    "0 4px 20px rgba(0,0,0,0.08)",
   border: "1px solid #e5e7eb",
-  flex: "0 0 auto",
 };
 
 const cardTitleStyle = {
   margin: 0,
+  color: "#475569",
   fontSize: "16px",
-  color: "#374151",
 };
 
 const cardValueStyle = {
-  marginTop: "10px",
-  fontSize: "28px",
+  marginTop: "15px",
+  fontSize: "34px",
   fontWeight: "bold",
   color: "#111827",
+};
+
+const chartsWrapperStyle = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit,minmax(500px,1fr))",
+  gap: "24px",
+  marginTop: "40px",
+};
+
+const chartCardStyle = {
+  background: "white",
+  borderRadius: "16px",
+  padding: "20px",
+  boxShadow:
+    "0 4px 20px rgba(0,0,0,0.08)",
+  border: "1px solid #e5e7eb",
+};
+
+const chartTitleStyle = {
+  marginBottom: "20px",
+  color: "#0f172a",
 };
 
 export default Dashboard;

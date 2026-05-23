@@ -21,23 +21,43 @@ function UploadDocuments() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // NEW STATES
+  const [previewContent, setPreviewContent] = useState("");
+  const [previewFile, setPreviewFile] = useState("");
+  const [showModal, setShowModal] = useState(false);
+
+  // =========================
+  // FETCH DOCUMENTS
+  // =========================
   const fetchUploadedDocs = async () => {
+
     try {
+
       const res = await fetch(
         "http://127.0.0.1:8000/uploaded-documents"
       );
+
       const data = await res.json();
+
       setUploadedDocs(data.files || []);
+
     } catch (err) {
+
       console.log(err);
     }
   };
 
   useEffect(() => {
+
     fetchUploadedDocs();
+
   }, []);
 
+  // =========================
+  // FILTER
+  // =========================
   const filteredDocs = uploadedDocs.filter((doc) => {
+
     const categoryMatch =
       filterCategory === "All" ||
       doc.category === filterCategory;
@@ -95,6 +115,7 @@ function UploadDocuments() {
       const data = await res.json();
 
       setMessage(data.message);
+
       fetchUploadedDocs();
 
     } catch (err) {
@@ -109,40 +130,121 @@ function UploadDocuments() {
     }
   };
 
+  // =========================
+  // READ DOCUMENT
+  // =========================
+  const readDocument = async (filename) => {
+
+    try {
+
+      const res = await fetch(
+        `http://127.0.0.1:8000/read-document/${filename}`
+      );
+
+      const data = await res.json();
+
+      setPreviewFile(filename);
+
+      setPreviewContent(
+        data.content || "No content found"
+      );
+
+      setShowModal(true);
+
+    } catch (err) {
+
+      console.log(err);
+    }
+  };
+
+  // =========================
+  // DELETE DOCUMENT
+  // =========================
+  const deleteDocument = async (filename) => {
+
+    const confirmDelete = window.confirm(
+      `Delete ${filename} ?`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+
+      await fetch(
+        `http://127.0.0.1:8000/delete-document/${filename}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      fetchUploadedDocs();
+
+    } catch (err) {
+
+      console.log(err);
+    }
+  };
+
   return (
     <AdminLayout>
 
       <div style={pageStyle}>
 
-        <h1 style={titleStyle}>
-          Upload Documents
-        </h1>
+        <h1
+          style={titleStyle}
+          onMouseEnter={(e) => {
+            e.target.style.transform = "scale(1.03)";
+            e.target.style.color = "#2563eb";
+            e.target.style.textShadow =
+              "0 4px 12px rgba(37,99,235,0.25)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.transform = "scale(1)";
+          e.target.style.color = "#0f172a";
+          e.target.style.textShadow = "none";
+        }}
+      >
+        Upload Documents
+      </h1>
 
         <div style={cardStyle}>
 
           <p style={infoStyle}>
             Supported formats:
-            PDF, DOCX, TXT, PPTX
+            PDF, DOCX, TXT
           </p>
 
           <div style={formRowStyle}>
+
             <div style={fieldGroupStyle}>
-              <label style={labelStyle} htmlFor="category">
+
+              <label style={labelStyle}>
                 Document Category
               </label>
+
               <select
-                id="category"
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) =>
+                  setCategory(e.target.value)
+                }
                 style={selectStyle}
               >
+
                 {categories.map((item) => (
-                  <option key={item} value={item}>
+
+                  <option
+                    key={item}
+                    value={item}
+                  >
                     {item}
                   </option>
+
                 ))}
+
               </select>
+
             </div>
+
           </div>
 
           <input
@@ -156,7 +258,7 @@ function UploadDocuments() {
 
             <div style={fileListStyle}>
 
-              <h3 style={{ marginTop: 0 }}>
+              <h3>
                 Selected Files
               </h3>
 
@@ -179,9 +281,11 @@ function UploadDocuments() {
             style={buttonStyle}
             disabled={loading}
           >
+
             {loading
               ? "Uploading..."
               : "Upload & Ingest"}
+
           </button>
 
           {message && (
@@ -194,73 +298,227 @@ function UploadDocuments() {
 
         </div>
 
+        {/* ========================= */}
+        {/* DOCUMENTS TABLE */}
+        {/* ========================= */}
+
         <div style={uploadsCardStyle}>
+
           <div style={filterRowStyle}>
+
             <div style={fieldGroupStyle}>
-              <label style={labelStyle} htmlFor="filterCategory">
+
+              <label style={labelStyle}>
                 Filter by Category
               </label>
+
               <select
-                id="filterCategory"
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
+                onChange={(e) =>
+                  setFilterCategory(e.target.value)
+                }
                 style={selectStyle}
               >
-                <option value="All">All</option>
+
+                <option value="All">
+                  All
+                </option>
+
                 {categories.map((item) => (
-                  <option key={item} value={item}>
+
+                  <option
+                    key={item}
+                    value={item}
+                  >
                     {item}
                   </option>
+
                 ))}
+
               </select>
+
             </div>
 
             <div style={fieldGroupStyle}>
-              <label style={labelStyle} htmlFor="filterDays">
-                Show last
+
+              <label style={labelStyle}>
+                Show Last
               </label>
+
               <select
-                id="filterDays"
                 value={filterDays}
-                onChange={(e) => setFilterDays(e.target.value)}
+                onChange={(e) =>
+                  setFilterDays(e.target.value)
+                }
                 style={selectStyle}
               >
-                <option value="All">All days</option>
-                <option value="7">7 days</option>
-                <option value="30">30 days</option>
-                <option value="90">90 days</option>
-                <option value="180">180 days</option>
+
+                <option value="All">
+                  All Days
+                </option>
+
+                <option value="7">
+                  7 Days
+                </option>
+
+                <option value="30">
+                  30 Days
+                </option>
+
+                <option value="90">
+                  90 Days
+                </option>
+
               </select>
+
             </div>
+
           </div>
 
-          <h2 style={sectionTitleStyle}>Uploaded Documents</h2>
+          <h2 style={sectionTitleStyle}>
+            Uploaded Documents
+          </h2>
 
           {filteredDocs.length === 0 ? (
-            <p style={emptyStateStyle}>
-              No documents found for the selected filters.
-            </p>
+
+            <p>No documents found.</p>
+
           ) : (
+
             <table style={uploadTableStyle}>
+
               <thead>
+
                 <tr>
-                  <th>File</th>
-                  <th>Category</th>
-                  <th>Uploaded At</th>
+
+                  <th style={uploadTableHeaderStyle}>
+                    File
+                  </th>
+
+                  <th style={uploadTableHeaderStyle}>
+                    Category
+                  </th>
+
+                  <th style={uploadTableHeaderStyle}>
+                    Uploaded
+                  </th>
+
+                  <th style={uploadTableHeaderStyle}>
+                    Actions
+                  </th>
+
                 </tr>
+
               </thead>
+
               <tbody>
+
                 {filteredDocs.map((doc, index) => (
-                  <tr key={`${doc.filename}-${index}`}>
-                    <td>{doc.filename}</td>
-                    <td>{doc.category}</td>
-                    <td>{new Date(doc.uploaded_at).toLocaleString()}</td>
+
+                  <tr key={index}>
+
+                    <td
+                      style={{
+                        ...uploadTableCellStyle,
+                        ...fileNameCellStyle
+                      }}
+                    >
+                      {doc.filename}
+                    </td>
+                      
+                    
+
+                    <td style={uploadTableCellStyle}>
+                      {doc.category}
+                    </td>
+
+                    <td style={uploadTableCellStyle}>
+                      {new Date(
+                        doc.uploaded_at
+                      ).toLocaleString()}
+                    </td>
+                      <td style={uploadTableCellStyle}>
+                      
+                        <div style={actionButtonsWrapperStyle}>
+                      
+                          <button
+                            style={{
+                              ...readButtonStyle,
+                              ...actionButtonStyle
+                            }}
+                            onClick={() =>
+                              readDocument(doc.filename)
+                            }
+                          >
+                            Read
+                          </button>
+                      
+                          <button
+                            style={{
+                              ...deleteButtonStyle,
+                              ...actionButtonStyle
+                            }}
+                            onClick={() =>
+                              deleteDocument(doc.filename)
+                            }
+                          >
+                            Delete
+                          </button>
+                      
+                        </div>
+                      
+                      </td>
+
+                    
+
                   </tr>
+
                 ))}
+
               </tbody>
+
             </table>
+
           )}
+
         </div>
+
+        {/* ========================= */}
+        {/* MODAL */}
+        {/* ========================= */}
+
+        {showModal && (
+
+          <div style={modalOverlayStyle}>
+
+            <div style={modalStyle}>
+
+              <div style={modalHeaderStyle}>
+
+                <h2>
+                  {previewFile}
+                </h2>
+
+                <button
+                  onClick={() =>
+                    setShowModal(false)
+                  }
+                  style={closeButtonStyle}
+                >
+                  X
+                </button>
+
+              </div>
+
+              <div style={modalContentStyle}>
+                {previewContent}
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
 
       </div>
 
@@ -274,6 +532,13 @@ const pageStyle = {
 
 const titleStyle = {
   marginBottom: "20px",
+  color: "#0f172a",
+  fontSize: "34px",
+  fontWeight: "700",
+  letterSpacing: "0.5px",
+  transition: "all 0.3s ease",
+  cursor: "pointer",
+  display: "inline-block",
 };
 
 const cardStyle = {
@@ -286,34 +551,24 @@ const cardStyle = {
   gap: "20px",
   maxWidth: "650px",
   border: "1px solid #e2e8f0",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.08)"
 };
 
 const infoStyle = {
   margin: 0,
-  color: "#475569",
-  fontSize: "15px",
 };
 
 const inputStyle = {
   padding: "10px",
-  border: "1px solid #cbd5e1",
-  borderRadius: "8px",
 };
 
 const fileListStyle = {
   background: "#f8fafc",
   padding: "15px",
   borderRadius: "8px",
-  border: "1px solid #e2e8f0",
-  maxHeight: "200px",
-  overflowY: "auto",
 };
 
 const fileItemStyle = {
-  padding: "8px 10px",
-  borderBottom: "1px solid #e2e8f0",
-  fontSize: "14px",
+  padding: "6px 0",
 };
 
 const buttonStyle = {
@@ -323,26 +578,20 @@ const buttonStyle = {
   border: "none",
   borderRadius: "8px",
   cursor: "pointer",
-  fontSize: "16px",
-  fontWeight: "600",
 };
 
 const messageStyle = {
-  margin: 0,
-  fontWeight: "600",
-  color: "#16a34a",
+  color: "green",
 };
 
 const formRowStyle = {
   display: "grid",
   gap: "20px",
-  marginBottom: "20px",
 };
 
 const filterRowStyle = {
-  display: "grid",
+  display: "flex",
   gap: "20px",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   marginBottom: "20px",
 };
 
@@ -353,36 +602,23 @@ const fieldGroupStyle = {
 };
 
 const labelStyle = {
-  fontSize: "14px",
-  color: "#334155",
   fontWeight: "600",
 };
 
 const selectStyle = {
   padding: "10px",
   borderRadius: "8px",
-  border: "1px solid #cbd5e1",
-  background: "white",
-  color: "#0f172a",
 };
 
 const uploadsCardStyle = {
+  marginTop: "30px",
   background: "white",
-  color: "#1e293b",
   padding: "30px",
   borderRadius: "12px",
-  marginTop: "30px",
-  border: "1px solid #e2e8f0",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
 };
 
 const sectionTitleStyle = {
-  margin: "0 0 16px",
-  color: "#0f172a",
-};
-
-const emptyStateStyle = {
-  color: "#475569",
+  marginBottom: "20px",
 };
 
 const uploadTableStyle = {
@@ -391,18 +627,99 @@ const uploadTableStyle = {
 };
 
 const uploadTableCellStyle = {
-  padding: "12px 14px",
-  borderBottom: "1px solid #e2e8f0",
-  textAlign: "left",
-  color: "#1e293b",
+  padding: "12px",
+  borderBottom: "1px solid #ddd",
+  verticalAlign: "top",
+  wordBreak: "break-word",
 };
 
 const uploadTableHeaderStyle = {
-  padding: "12px 14px",
-  borderBottom: "2px solid #e2e8f0",
+  padding: "12px",
+  borderBottom: "2px solid #ddd",
   textAlign: "left",
-  color: "#1e293b",
-  fontWeight: 600,
+};
+const fileNameCellStyle = {
+  maxWidth: "320px",
+  whiteSpace: "normal",
+  overflowWrap: "break-word",
+  lineHeight: "1.5",
+};
+
+const actionButtonsWrapperStyle = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  alignItems: "center",
+  minWidth: "160px",
+};
+
+const actionButtonStyle = {
+  minWidth: "70px",
+  textAlign: "center",
+};
+
+const readButtonStyle = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: "6px",
+  marginRight: "10px",
+  cursor: "pointer",
+};
+
+const deleteButtonStyle = {
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: "6px",
+  cursor: "pointer",
+};
+
+const modalOverlayStyle = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  background: "rgba(0,0,0,0.5)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const modalStyle = {
+  background: "white",
+  width: "80%",
+  maxWidth: "900px",
+  borderRadius: "12px",
+  padding: "20px",
+  maxHeight: "80vh",
+  overflow: "hidden",
+};
+
+const modalHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const closeButtonStyle = {
+  background: "red",
+  color: "white",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: "6px",
+  cursor: "pointer",
+};
+
+const modalContentStyle = {
+  marginTop: "20px",
+  maxHeight: "60vh",
+  overflowY: "auto",
+  whiteSpace: "pre-wrap",
+  lineHeight: "1.6",
 };
 
 export default UploadDocuments;

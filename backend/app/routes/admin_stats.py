@@ -10,11 +10,15 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/stats")
 def get_stats(
     username: str = Depends(require_admin),
-    days: int = Query(1, ge=1, le=30)  # default 1 day, allow 1..30
+    days: int = Query(1, ge=1, le=30)
 ):
+
     with engine.begin() as conn:
 
-        # Sessions started within last N days
+        # =========================
+        # MAIN STATS
+        # =========================
+
         total_sessions = conn.execute(
             text("""
                 SELECT COUNT(*)
@@ -24,7 +28,6 @@ def get_stats(
             {"days": days}
         ).scalar()
 
-        # Messages within last N days
         total_messages = conn.execute(
             text("""
                 SELECT COUNT(*)
@@ -34,7 +37,6 @@ def get_stats(
             {"days": days}
         ).scalar()
 
-        # Active sessions still based on last 10 minutes (live metric)
         active_sessions = conn.execute(
             text("""
                 SELECT COUNT(*)
@@ -43,7 +45,6 @@ def get_stats(
             """)
         ).scalar()
 
-        # Avg messages per session within last N days
         avg_messages_per_session = conn.execute(
             text("""
                 SELECT COALESCE(AVG(msg_count), 0)
@@ -57,11 +58,61 @@ def get_stats(
             {"days": days}
         ).scalar()
 
+        # =========================
+        # GRAPH DATA
+        # =========================
+
+        messages_graph = conn.execute(
+            text("""
+                SELECT
+                    DATE(created_at) AS day,
+                    COUNT(*) AS total
+                FROM chat_history
+                WHERE created_at >= NOW() - (:days || ' days')::interval
+                GROUP BY day
+                ORDER BY day
+            """),
+            {"days": days}
+        ).fetchall()
+
+        sessions_graph = conn.execute(
+            text("""
+                SELECT
+                    DATE(started_at) AS day,
+                    COUNT(*) AS total
+                FROM sessions
+                WHERE started_at >= NOW() - (:days || ' days')::interval
+                GROUP BY day
+                ORDER BY day
+            """),
+            {"days": days}
+        ).fetchall()
+
     return {
         "admin": username,
         "days": days,
+
         "total_sessions": total_sessions,
         "active_sessions": active_sessions,
         "total_messages": total_messages,
-        "avg_messages_per_session": round(avg_messages_per_session, 2),
+        "avg_messages_per_session": round(
+            avg_messages_per_session,
+            2
+        ),
+
+        "messages_graph": [
+            {
+                "day": str(row.day),
+                "total": row.total
+            }
+            for row in messages_graph
+        ],
+
+        "sessions_graph": [
+            {
+                "day": str(row.day),
+                "total": row.total
+            }
+            for row in sessions_graph
+        ]
     }

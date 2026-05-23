@@ -303,3 +303,95 @@ def get_uploaded_documents(
     )
 
     return {"files": metadata}
+# =========================
+# READ DOCUMENT CONTENT
+# =========================
+@router.get("/read-document/{filename}")
+def read_document(filename: str):
+
+    file_path = os.path.join(
+        UPLOAD_FOLDER,
+        filename
+    )
+
+    if not os.path.exists(file_path):
+
+        return {
+            "error": "File not found"
+        }
+
+    text_data = ""
+
+    try:
+
+        if filename.lower().endswith(".pdf"):
+
+            text_data = extract_pdf_text(file_path)
+
+        elif filename.lower().endswith(".docx"):
+
+            text_data = extract_docx_text(file_path)
+
+        elif filename.lower().endswith(".txt"):
+
+            text_data = extract_txt_text(file_path)
+
+        else:
+
+            return {
+                "error": "Unsupported file type"
+            }
+
+        return {
+            "filename": filename,
+            "content": text_data[:10000]
+        }
+
+    except Exception as e:
+
+        return {
+            "error": str(e)
+        }
+
+
+# =========================
+# DELETE DOCUMENT
+# =========================
+@router.delete("/delete-document/{filename}")
+def delete_document(filename: str):
+
+    try:
+
+        file_path = os.path.join(
+            UPLOAD_FOLDER,
+            filename
+        )
+
+        # =========================
+        # DELETE FILE
+        # =========================
+        if os.path.exists(file_path):
+
+            os.remove(file_path)
+
+        # =========================
+        # REMOVE METADATA
+        # =========================
+        metadata = load_metadata()
+
+        metadata = [
+            item for item in metadata
+            if item["filename"] != filename
+        ]
+
+        save_metadata(metadata)
+
+        return {
+            "message": f"{filename} deleted successfully"
+        }
+
+    except Exception as e:
+
+        return {
+            "error": str(e)
+        }
