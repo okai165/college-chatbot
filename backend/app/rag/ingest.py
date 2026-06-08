@@ -109,7 +109,7 @@ def process_pdf(pdf_path):
                     "embedding": embedding_str
                 }
             )
-
+    print("Saving document:", pdf_name)
     print("✅ PDF successfully ingested into vector DB!")
 
 

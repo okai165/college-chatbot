@@ -5,16 +5,13 @@ import AdminLayout from "../components/AdminLayout";
 
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  AreaChart,
-  Area
+  Tooltip
 } from "recharts";
-
 function Dashboard() {
 
   const navigate = useNavigate();
@@ -30,6 +27,22 @@ function Dashboard() {
 
   const [isRetryHover, setIsRetryHover] =
     useState(false);
+    // =========================
+  // DATE FORMATTER
+  // =========================
+  const formatDate = (dateStr) => {
+
+    const date = new Date(dateStr);
+
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "numeric",
+        month: "short"
+      }
+    );
+
+  };
 
   useEffect(() => {
 
@@ -255,36 +268,39 @@ function Dashboard() {
           <div style={chartCardStyle}>
 
             <h2 style={chartTitleStyle}>
-              Sessions Trend
+              Sessions Trend (Last {days} Days)
             </h2>
 
             <ResponsiveContainer
               width="100%"
-              height={300}
+              height={320}
             >
 
-              <LineChart
-                data={stats.sessions_graph}
-              >
+               <BarChart
+                  data={stats.sessions_graph}
+               >
 
                 <CartesianGrid
                   strokeDasharray="3 3"
                 />
 
-                <XAxis dataKey="day" />
+                <XAxis dataKey="day"
+                 tickFormatter={formatDate}
+                 />
 
                 <YAxis />
 
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) => [`${value}`, "Sessions"]}
+                  labelFormatter={(label) => `Date: ${label}`}
+               />
+              <Bar
+                dataKey="total"
+                fill="#2563eb"
+              />
 
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#2563eb"
-                  strokeWidth={3}
-                />
 
-              </LineChart>
+              </BarChart>
 
             </ResponsiveContainer>
 
@@ -295,15 +311,15 @@ function Dashboard() {
           <div style={chartCardStyle}>
 
             <h2 style={chartTitleStyle}>
-              Messages Trend
+              Messages Trend (Last {days} Days)
             </h2>
 
             <ResponsiveContainer
               width="100%"
-              height={300}
+              height={320}
             >
 
-              <AreaChart
+              <BarChart
                 data={stats.messages_graph}
               >
 
@@ -311,20 +327,29 @@ function Dashboard() {
                   strokeDasharray="3 3"
                 />
 
-                <XAxis dataKey="day" />
+                <XAxis dataKey="day"
+                 tickFormatter={formatDate}
+                />
 
                 <YAxis />
 
-                <Tooltip />
+                <Tooltip 
+                    formatter={(value) => [`${value}`, "Messages"]}
+                    labelFormatter={(label) => `Date: ${label}`}
+                />
+                <Bar
+                  dataKey="total"
+                  fill="#16a34a"
+                />
 
-                <Area
+                {/* <Area
                   type="monotone"
                   dataKey="total"
                   stroke="#16a34a"
                   fill="#86efac"
-                />
+                /> */}
 
-              </AreaChart>
+              </BarChart>
 
             </ResponsiveContainer>
             <div style={chartCardStyle}>

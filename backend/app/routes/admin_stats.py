@@ -78,20 +78,62 @@ def get_stats(
             text("""
                 SELECT
                 CASE
-                    WHEN LOWER(message) LIKE '%exam%' THEN 'Exams'
-                    WHEN LOWER(message) LIKE '%faculty%' THEN 'Faculty'
-                    WHEN LOWER(message) LIKE '%teacher%' THEN 'Faculty'
-                    WHEN LOWER(message) LIKE '%syllabus%' THEN 'Syllabus'
-                    WHEN LOWER(message) LIKE '%admission%' THEN 'Admission'
-                    WHEN LOWER(message) LIKE '%library%' THEN 'Library'
-                    WHEN LOWER(message) LIKE '%event%' THEN 'Events'
+
+                    WHEN
+                        LOWER(message) LIKE '%exam%'
+                        OR LOWER(message) LIKE '%examination%'
+                        OR LOWER(message) LIKE '%result%'
+                        OR LOWER(message) LIKE '%datesheet%'
+                        OR LOWER(message) LIKE '%hall ticket%'
+                    THEN 'Exams'
+
+                    WHEN
+                        LOWER(message) LIKE '%faculty%'
+                        OR LOWER(message) LIKE '%teacher%'
+                        OR LOWER(message) LIKE '%teach%'
+                        OR LOWER(message) LIKE '%class%'
+                        OR LOWER(message) LIKE '%room%'
+                        OR LOWER(message) LIKE '%classroom%'
+                        OR LOWER(message) LIKE '%timing%'
+                        OR LOWER(message) LIKE '%time%'
+                        OR LOWER(message) LIKE '%schedule%'
+                    THEN 'Faculty'
+
+                    WHEN
+                        LOWER(message) LIKE '%syllabus%'
+                        OR LOWER(message) LIKE '%subject%'
+                    THEN 'Syllabus'
+
+                    WHEN
+                        LOWER(message) LIKE '%admission%'
+                        OR LOWER(message) LIKE '%admissions%'
+                        OR LOWER(message) LIKE '%admit%'
+                    THEN 'Admission'
+
+                    WHEN
+                        LOWER(message) LIKE '%library%'
+                    THEN 'Library'
+
+                    WHEN
+                        LOWER(message) LIKE '%event%'
+                        OR LOWER(message) LIKE '%workshop%'
+                        OR LOWER(message) LIKE '%sports%'
+                        OR LOWER(message) LIKE '%cultural%'
+                    THEN 'Events'
+
                     ELSE 'Other'
+
                 END AS category,
                 COUNT(*) AS total
+
                 FROM chat_history
+
                 WHERE role = 'user'
+
                 GROUP BY category
+
                 ORDER BY total DESC
+                 
             """)
         ).fetchall()
 
