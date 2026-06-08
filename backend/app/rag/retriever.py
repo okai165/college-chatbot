@@ -3,75 +3,66 @@ from app.db.database import engine
 from app.rag.embedder import generate_embedding
 
 
-# =========================
-# RETRIEVE SIMILAR CHUNKS
-# =========================
 def retrieve_similar_chunks(query: str):
 
     try:
 
-        # =========================
-        # EXPAND QUERY
-        # =========================
-        expanded_query = f"""
-        College academic query:
-        {query}
+        query_embedding = generate_embedding(query)
 
-        Related terms:
-        admission semester batch examination faculty result timetable notice
-        """
-
-        # =========================
-        # GENERATE EMBEDDING
-        # =========================
-        query_embedding = generate_embedding(expanded_query)
-
-        # Convert embedding → pgvector format
         query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
-        # =========================
-        # VECTOR SEARCH
-        # =========================
         with engine.connect() as conn:
 
-            result = conn.execute(
+            # Find best matching document
+            best_match = conn.execute(
                 text("""
                     SELECT
-                        content,
+                        document_name,
                         embedding <-> CAST(:query_embedding AS vector) AS distance
                     FROM documents
                     ORDER BY embedding <-> CAST(:query_embedding AS vector)
-                    LIMIT 15
+                    LIMIT 1
                 """),
                 {
                     "query_embedding": query_embedding_str
+                }
+            ).fetchone()
+
+            if not best_match:
+                return []
+            # reject unrelated matches
+            if best_match.distance > 1.20:
+                print("No relevant document found")
+                return []
+            
+            print("\n========== BEST DOCUMENT ==========")
+            print(best_match.document_name)
+            print("Distance:", best_match.distance)
+
+            # Fetch ALL chunks from that document
+            result = conn.execute(
+                text("""
+                    SELECT content
+                    FROM documents
+                    WHERE document_name = :document_name
+                    ORDER BY id
+                """),
+                {
+                    "document_name": best_match.document_name
                 }
             )
 
             rows = result.fetchall()
 
-        # =========================
-        # DEBUG OUTPUT
-        # =========================
-        print("\n========== RETRIEVED CHUNKS ==========\n")
+        print("\n========== RETURNING FULL DOCUMENT ==========\n")
 
         for i, row in enumerate(rows):
+            print(f"\nCHUNK {i+1}")
+            print(row.content[:500])
 
-            print(f"\nRESULT {i+1}")
-            print("DISTANCE:", row.distance)
-
-            if row.content:
-                print(row.content[:500])
-
-            print("\n-----------------------------------")
-
-        # =========================
-        # RETURN TOP RESULTS
-        # =========================
-        return rows[:10]
+        return rows
 
     except Exception as e:
 
         print("❌ RETRIEVER ERROR:", e)
-
         return []

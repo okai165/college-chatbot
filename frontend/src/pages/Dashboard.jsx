@@ -215,7 +215,15 @@ function Dashboard() {
               {stats.active_sessions}
             </p>
           </div>
+          <div style={cardStyle}>
+            <h3 style={cardTitleStyle}>
+              Total Users
+            </h3>
 
+            <p style={cardValueStyle}>
+              {stats.total_users}
+            </p>
+          </div>
           <div style={cardStyle}>
             <h3 style={cardTitleStyle}>
               Total Messages
@@ -319,7 +327,33 @@ function Dashboard() {
               </AreaChart>
 
             </ResponsiveContainer>
+            <div style={chartCardStyle}>
 
+              <h2 style={chartTitleStyle}>
+                Most Asked Topics
+             </h2>
+
+              {stats.top_categories?.map((item) => (
+
+                <div
+                  key={item.category}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "12px 0",
+                    borderBottom: "1px solid #e5e7eb"
+                  }}
+                >
+
+                  <span>{item.category}</span>
+
+                  <strong>{item.total}</strong>
+
+                </div>
+
+              ))}
+
+            </div>
           </div>
 
         </div>

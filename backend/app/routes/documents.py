@@ -132,7 +132,7 @@ def extract_txt_text(path):
 # =========================
 # INGEST FUNCTION
 # =========================
-def ingest_text(text_data):
+def ingest_text(text_data,document_name):
 
     chunks = chunk_text(text_data)
 
@@ -149,11 +149,15 @@ def ingest_text(text_data):
             conn.execute(
                 text("""
                     INSERT INTO documents
-                    (content, embedding)
+                    (document_name, content, embedding)
                     VALUES
-                    (:content, :embedding)
+                    (   
+                        :document_name,
+                        :content, 
+                        :embedding)
                 """),
-                {
+                {   
+                    "document_name": document_name,
                     "content": chunk,
                     "embedding": embedding
                 }
@@ -225,7 +229,9 @@ async def upload_documents(
         # =========================
         if text_data.strip():
 
-            ingest_text(text_data)
+            ingest_text(text_data,
+                        file.filename
+            )
 
             uploaded_files.append(file.filename)
             metadata.append({
@@ -373,7 +379,20 @@ def delete_document(filename: str):
         if os.path.exists(file_path):
 
             os.remove(file_path)
+        # =========================
+        # DELETE FROM VECTOR DB
+        # =========================
+        with engine.begin() as conn:
 
+            conn.execute(
+                text("""
+                    DELETE FROM documents
+                    WHERE document_name = :filename
+                """),
+                {
+                    "filename": filename
+                }
+            )
         # =========================
         # REMOVE METADATA
         # =========================

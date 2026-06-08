@@ -3,7 +3,7 @@ import {
   useEffect,
   useRef
 } from "react";
-
+import "./App.css";
 import {
   Routes,
   Route
@@ -25,8 +25,8 @@ function ChatWidget() {
 
   const [open, setOpen] = useState(false);
 
-  const [sidebarOpen, setSidebarOpen] =
-    useState(window.innerWidth > 768);
+  // const [sidebarOpen, setSidebarOpen] =
+  //   useState(window.innerWidth > 768);
 
   const [darkMode, setDarkMode] =
     useState(false);
@@ -346,28 +346,38 @@ function ChatWidget() {
 
   const createNewChat = () => {
 
-    const newId =
-      `chat_${Date.now()}`;
+  const newId = `chat_${Date.now()}`;
 
-    const newChat = {
-      id: newId,
-      title: "New Chat"
-    };
-
-    setRecentChats((prev) => [
-      newChat,
-      ...prev
-    ]);
-
-    setAllChats((prev) => ({
-      ...prev,
-      [newId]: []
-    }));
-
-    setCurrentChatId(newId);
-
-    setMessages([]);
+  const newChat = {
+    id: newId,
+    title: "New Chat"
   };
+
+  // remove old chat history
+  setRecentChats([newChat]);
+
+  setAllChats({
+    [newId]: []
+  });
+
+  setCurrentChatId(newId);
+
+  setMessages([]);
+
+  setInput("");
+
+  localStorage.setItem(
+    "recentChats",
+    JSON.stringify([newChat])
+  );
+
+  localStorage.setItem(
+    "allChats",
+    JSON.stringify({
+      [newId]: []
+    })
+  );
+};
 
   // =========================
   // DELETE CHAT
@@ -451,41 +461,41 @@ function ChatWidget() {
   // VOICE INPUT
   // =========================
 
-  const startVoiceInput =
-    () => {
+  // const startVoiceInput =
+  //   () => {
 
-      const SpeechRecognition =
-        window.SpeechRecognition ||
-        window.webkitSpeechRecognition;
+  //     const SpeechRecognition =
+  //       window.SpeechRecognition ||
+  //       window.webkitSpeechRecognition;
 
-      if (
-        !SpeechRecognition
-      ) {
+  //     if (
+  //       !SpeechRecognition
+  //     ) {
 
-        alert(
-          "Voice recognition not supported"
-        );
+  //       alert(
+  //         "Voice recognition not supported"
+  //       );
 
-        return;
-      }
+  //       return;
+  //     }
 
-      const recognition =
-        new SpeechRecognition();
+  //     const recognition =
+  //       new SpeechRecognition();
 
-      recognition.lang =
-        "en-US";
+  //     recognition.lang =
+  //       "en-US";
 
-      recognition.start();
+  //     recognition.start();
 
-      recognition.onresult =
-        (event) => {
+  //     recognition.onresult =
+  //       (event) => {
 
-          setInput(
-            event.results[0][0]
-              .transcript
-          );
-        };
-    };
+  //         setInput(
+  //           event.results[0][0]
+  //             .transcript
+  //         );
+  //       };
+  //   };
 
   // =========================
   // COLORS
@@ -507,30 +517,74 @@ function ChatWidget() {
 
   return (
   <div>
-
-    {/* FLOAT BUTTON */}
-
+  {/* Landing Content */}
+   {!open && (
     <div
-      onClick={() => setOpen(!open)}
       style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        width: "65px",
-        height: "65px",
-        borderRadius: "50%",
-        background: "#2563eb",
-        color: "white",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: "30px",
-        cursor: "pointer",
-        zIndex: 1000
-      }}
-    >
-      💬
-    </div>
+        textAlign: "center",
+        padding: "40px 20px",
+        maxWidth: "900px",
+        margin: "0 auto"
+      }}    
+    > 
+    
+  {/* College Logo */}
+  {/* <img
+    src="/college-logo.png"   // replace with your logo
+    alt="GCW M.A Road"
+    style={{
+      width: "120px",
+      height: "120px",
+      objectFit: "contain",
+      marginBottom: "15px"
+    }}
+  /> */}
+
+  <h1
+    style={{
+      fontSize: "27px",
+      fontWeight: "700",
+      marginBottom: "12px"
+    }}
+  >
+    Government College for Women M.A. Road Srinagar
+  </h1>
+
+  <p
+    style={{
+      fontSize: "22px",
+      color: "#ced7e4",
+      maxWidth: "700px",
+      margin: "0 auto 30px"
+    }}
+  >
+    Welcome to the College AI Assistant.
+    
+  </p>
+
+  {/* Feature Cards */}
+  <div className="feature-section">
+    <h2 className="feature-title">You can explore</h2>
+
+    <ul className="feature-list">
+      <li>Faculty information and profiles</li>
+      <li>Admission process and eligibility details</li>
+      <li>Exam schedules and updates</li>
+      <li>Campus facilities and announcements</li>
+    </ul>
+ </div>
+</div>
+)}
+    {/* FLOAT BUTTON */}
+    {!open && (
+     <div className={`chat-fab ${open ? "active" : ""}`} onClick={() => setOpen(!open)}>
+      <span>Click Here To Chat</span>
+     </div>
+    )}
 
     {/* CHAT WINDOW */}
 
@@ -538,265 +592,29 @@ function ChatWidget() {
 
       <div
         style={{
-          position: "fixed",
-          bottom:
-            window.innerWidth < 768
-              ? "0"
-              : "90px",
-
-          right:
-            window.innerWidth < 768
-              ? "0"
-              : "20px",
-
-          width:
-            window.innerWidth < 768
-              ? "100vw"
-              : "900px",
-
-          height:
-            window.innerWidth < 768
-              ? "100vh"
-              : "493px",
-
-          background: colors.bg,
-
-          borderRadius:
-            window.innerWidth < 768
-              ? "0"
-              : "14px",
-
+         position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          zIndex: 9999,
           display: "flex",
-
-          overflow: "hidden",
-
-          zIndex: 1000
+          flexDirection: "column",
+          background: colors.bg,
+          overflow: "hidden"
         }}
       >
 
         {/* SIDEBAR */}
 
-        <div
-          style={{
-            width:
-              sidebarOpen
-                ? "280px"
-                : "75px",
-
-            background:
-              darkMode
-                ? "#020617"
-                : "#0f172a",
-
-            color: "white",
-
-            display: "flex",
-
-            flexDirection:
-              "column"
-          }}
-        >
-
-          {/* HEADER */}
-
-          <div
-            style={{
-              padding: "20px",
-
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              alignItems:
-                "center"
-            }}
-          >
-
-            {sidebarOpen && (
-              <span>
-                Recent Chats
-              </span>
-            )}
-
-            <button
-              onClick={() =>
-                setSidebarOpen(
-                  !sidebarOpen
-                )
-              }
-              style={{
-                background:
-                  "transparent",
-
-                border: "none",
-
-                color: "white",
-
-                cursor:
-                  "pointer",
-
-                fontSize: "22px"
-              }}
-            >
-              {sidebarOpen
-                ? "✖"
-                : "☰"}
-            </button>
-
-          </div>
-
-          {/* NEW CHAT */}
-
-          {sidebarOpen && (
-
-            <button
-              onClick={
-                createNewChat
-              }
-              style={{
-                margin:
-                  "10px",
-
-                padding:
-                  "12px",
-
-                background:
-                  "#2563eb",
-
-                border:
-                  "none",
-
-                color:
-                  "white",
-
-                borderRadius:
-                  "10px",
-
-                cursor:
-                  "pointer"
-              }}
-            >
-              + New Chat
-            </button>
-
-          )}
-
-          {/* CHAT LIST */}
-
-          <div
-            style={{
-              flex: 1,
-              overflowY:
-                "auto"
-            }}
-          >
-
-            {recentChats.map(
-              (chat) => (
-
-                <div
-                  key={chat.id}
-
-                  onClick={() =>
-                    setCurrentChatId(
-                      chat.id
-                    )
-                  }
-
-                  style={{
-                    padding:
-                      "14px",
-
-                    cursor:
-                      "pointer",
-
-                    background:
-                      currentChatId ===
-                      chat.id
-                        ? "#1e293b"
-                        : "transparent",
-
-                    display:
-                      "flex",
-
-                    alignItems:
-                      "center",
-
-                    justifyContent:
-                      "space-between"
-                  }}
-                >
-
-                  <span>
-                    💬{" "}
-
-                    {sidebarOpen &&
-                      chat.title}
-                  </span>
-
-                  {sidebarOpen && (
-
-                    <div
-                      style={{
-                        display:
-                          "flex",
-
-                        gap: "8px"
-                      }}
-                    >
-
-                      <span
-                        onClick={(
-                          e
-                        ) =>
-                          renameChat(
-                            chat.id,
-                            e
-                          )
-                        }
-                        style={{
-                          cursor:
-                            "pointer"
-                        }}
-                      >
-                        ✏️
-                      </span>
-
-                      <span
-                        onClick={(
-                          e
-                        ) =>
-                          deleteChat(
-                            chat.id,
-                            e
-                          )
-                        }
-                        style={{
-                          cursor:
-                            "pointer"
-                        }}
-                      >
-                        🗑️
-                      </span>
-
-                    </div>
-
-                  )}
-
-                </div>
-              )
-            )}
-
-          </div>
-
-        </div>
+      
 
         {/* MAIN AREA */}
 
         <div
           style={{
-            flex: 1,
+            height:
+              "100%",
 
             display: "flex",
 
@@ -850,17 +668,38 @@ function ChatWidget() {
               </div>
 
             </div>
-
+            {/* <button
+              onClick={createNewChat}
+              style={{
+                background: "#f1f5f9",
+                color: "#1e293b",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                padding: "8px 14px",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => {
+                  e.target.style.background = "#e2e8f0";
+              }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "#f1f5f9";
+                }}
+            >
+              New chat 
+            </button> */}
             <div
               style={{
-                display:
-                  "flex",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px"
 
-                gap: "15px"
               }}
             >
 
-              <button
+              <button title="Change theme" 
                 onClick={() =>
                   setDarkMode(
                     !darkMode
@@ -877,15 +716,36 @@ function ChatWidget() {
                     "white",
 
                   cursor:
-                    "pointer"
+                    "pointer",
+                  fontSize:
+                    "25px"
+
                 }}
               >
                 {darkMode
                   ? "☀️"
                   : "🌙"}
               </button>
-
               <button
+                onClick={createNewChat}
+                style={{
+                 background: "#eaf0f5",
+                 color: "#1e293b",
+                 border: "2px solid #50060d",
+                 borderRadius: "6px",
+                 padding: "6px 12px",
+                 height: "34px",
+                 cursor: "pointer",
+                 fontSize: "13px",
+                 fontWeight: "500",
+                 display: "flex",
+                 alignItems: "center",
+                 justifyContent: "center"
+                }}
+              >
+                New Chat
+              </button>
+              <button title="minimize"
                 onClick={() =>
                   setOpen(false)
                 }
@@ -900,10 +760,12 @@ function ChatWidget() {
                     "white",
 
                   cursor:
-                    "pointer"
+                    "pointer",
+                  fontSize:
+                    "60px"
                 }}
               >
-                ✖
+                -
               </button>
 
             </div>
@@ -1075,7 +937,7 @@ function ChatWidget() {
 
           <div
             style={{
-              padding: "18px",
+              padding: "12px",
 
               background:
                 colors.bg,
@@ -1088,53 +950,10 @@ function ChatWidget() {
               alignItems:
                 "center",
 
-              gap: "12px"
+              gap: "10px"
             }}
           >
-
-            {/* MIC BUTTON */}
-
-            <button
-              onClick={
-                startVoiceInput
-              }
-              style={{
-                width: "52px",
-
-                height: "52px",
-
-                border: "none",
-
-                borderRadius:
-                  "12px",
-
-                cursor:
-                  "pointer",
-
-                fontSize: "22px",
-
-                background:
-                  darkMode
-                    ? "#3f3f46"
-                    : "#e2e8f0",
-
-                color:
-                  darkMode
-                    ? "white"
-                    : "#0f172a",
-
-                display: "flex",
-
-                alignItems:
-                  "center",
-
-                justifyContent:
-                  "center"
-              }}
-            >
-              🎤
-            </button>
-
+            
             {/* INPUT */}
 
             <input
@@ -1163,32 +982,14 @@ function ChatWidget() {
               placeholder="Ask something..."
 
               style={{
-                flex: 1,
-
-                padding:
-                  "15px 18px",
-
-                borderRadius:
-                  "12px",
-
-                border:
-                  `1px solid ${colors.border}`,
-
-                background:
-                  darkMode
-                    ? "#3f3f46"
-                    : "#f8fafc",
-
-                color:
-                  darkMode
-                    ? "white"
-                    : "#0f172a",
-
-                outline:
-                  "none",
-
-                fontSize:
-                  "15px"
+                 flex: 1,
+                 padding: "10px 14px",
+                 borderRadius: "10px",
+                 border: "1px solid #cbd5e1",
+                 background: darkMode ? "#1e293b" : "#ffffff",
+                 color: colors.text,
+                 fontSize: "14px",
+                 outline: "none"
               }}
             />
 
@@ -1199,29 +1000,14 @@ function ChatWidget() {
                 sendMessage()
               }
               style={{
-                padding:
-                  "15px 22px",
-
-                background:
-                  "#2563eb",
-
-                color:
-                  "white",
-
-                border:
-                  "none",
-
-                borderRadius:
-                  "12px",
-
-                cursor:
-                  "pointer",
-
-                fontWeight:
-                  "700",
-
-                fontSize:
-                  "15px"
+                padding: "10px 16px",
+                background: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                cursor: "pointer",
+                fontWeight: "600",
+                fontSize: "14px"       
               }}
             >
               Send

@@ -13,8 +13,8 @@ from app.rag.embedder import generate_embedding
 # TEXT SPLITTER (IMPROVED)
 # =========================
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,
-    chunk_overlap=100,
+    chunk_size=1200,
+    chunk_overlap=200,
     separators=[
         "\n\n",
         "\n",
@@ -68,7 +68,7 @@ def chunk_text(text):
 # MAIN INGEST FUNCTION
 # =========================
 def process_pdf(pdf_path):
-
+    pdf_name = Path(pdf_path).name
     print("📄 Reading PDF...")
 
     text_data = extract_text_from_pdf(pdf_path)
@@ -95,13 +95,16 @@ def process_pdf(pdf_path):
 
             conn.execute(
                 text("""
-                    INSERT INTO documents (content, embedding)
+                    INSERT INTO documents 
+                     (document_name,content, embedding)
                     VALUES (
+                        :document_name,
                         :content,
                         CAST(:embedding AS vector)
                     )
                 """),
                 {
+                    "document_name": pdf_name,
                     "content": chunk,
                     "embedding": embedding_str
                 }
