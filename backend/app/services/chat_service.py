@@ -5,7 +5,8 @@ from app.services.llm import client
 from sqlalchemy import text
 import time
 
-
+# Store last faculty subject per session
+last_subject_by_session = {}
 # =========================
 # CHAT MEMORY
 # =========================
@@ -50,8 +51,14 @@ def search_faculty(query):
                 WHERE
                     LOWER(subject_name) LIKE LOWER(:query)
                     OR LOWER(faculty_name) LIKE LOWER(:query)
-                    OR LOWER(subject_name) = LOWER(:exact_query)
-                    OR LOWER(faculty_name) = LOWER(:exact_query)
+                ORDER BY
+                    CASE
+                        WHEN LOWER(subject_name) = LOWER(:exact_query) THEN 1
+                        WHEN LOWER(subject_name) LIKE LOWER(:query) THEN 2
+                        WHEN LOWER(faculty_name) LIKE LOWER(:query) THEN 3
+                        ELSE 4
+                    END
+                LIMIT 5
             """),
             {
                 "query": f"%{query}%",
@@ -130,18 +137,46 @@ def generate_response(user_query, session_id):
             " ",
             clean_query
         )
-
     clean_query = " ".join(clean_query.split())
 
-    faculty_rows = search_faculty(clean_query)
+    # Handle follow-up questions
+    history = get_chat_history(session_id)
+
+    followup_words = [
+        "where",
+        "when",
+        "time",
+        "timing",
+        "at what time",
+        "room",
+        "classroom"
+    ]
+
+    if (
+        query in followup_words
+        and session_id in last_subject_by_session
+    ):
+        clean_query = last_subject_by_session[session_id]
+    
+    print("USER QUERY:", user_query)
+    print("CLEAN QUERY:", clean_query)
+    print("LAST SUBJECT:", last_subject_by_session.get(session_id))
+    # Search faculty
+    faculty_rows = search_faculty(clean_query) if clean_query.strip() else []
+
+    # Always define row
+    row = faculty_rows[0] if faculty_rows else None
 
     faculty_context = ""
 
-    if faculty_rows:
+    if row:
+        last_subject_by_session[session_id] = row.subject_name.lower()
 
-        row = faculty_rows[0]
-
-        if "who teaches" in query or "teacher" in query:
+        if (
+            "who teaches" in query
+            or "teacher" in query
+            or "faculty" in query
+        ):
 
             return (
                 f"{row.subject_name} is taught by "
@@ -152,6 +187,7 @@ def generate_response(user_query, session_id):
             "time" in query
             or "when" in query
             or "timing" in query
+            or "at what time" in query
         ):
 
             return (
@@ -178,6 +214,7 @@ def generate_response(user_query, session_id):
     Time Slot: {row.time_slot}
     Room Number: {row.room_number}
     """
+    
 
     # print("\n========== FACULTY CONTEXT ==========")
     # print(faculty_context)
@@ -251,6 +288,7 @@ def generate_response(user_query, session_id):
     # CHAT MEMORY
     # =========================
     history = get_chat_history(session_id)
+    
 
     memory_text = "\n".join(
         [f"{h.role}: {h.message}" for h in history]
