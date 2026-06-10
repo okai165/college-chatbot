@@ -40,18 +40,33 @@ def retrieve_similar_chunks(query: str):
             print("Distance:", best_match.distance)
 
             # Fetch ALL chunks from that document
-            result = conn.execute(
-                text("""
-                    SELECT content
-                    FROM documents
-                    WHERE document_name = :document_name
-                    ORDER BY id
-                """),
-                {
-                    "document_name": best_match.document_name
-                }
-            )
+            if best_match.document_name:
 
+                result = conn.execute(
+                    text("""
+                        SELECT content
+                        FROM documents
+                        WHERE document_name = :document_name
+                        ORDER BY id
+                    """),
+                    {
+                        "document_name": best_match.document_name
+                    }
+                )
+
+            else:
+
+                result = conn.execute(
+                    text("""
+                        SELECT content
+                        FROM documents
+                        ORDER BY embedding <-> CAST(:query_embedding AS vector)
+                        LIMIT 10
+                    """),
+                    {
+                        "query_embedding": query_embedding_str
+                    }
+                )
             rows = result.fetchall()
 
         print("\n========== RETURNING FULL DOCUMENT ==========\n")

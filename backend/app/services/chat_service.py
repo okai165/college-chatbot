@@ -4,6 +4,7 @@ from app.rag.retriever import retrieve_similar_chunks
 from app.services.llm import client
 from sqlalchemy import text
 import time
+import re 
 
 # Store last faculty subject per session
 last_subject_by_session = {}
@@ -32,11 +33,84 @@ def get_chat_history(session_id, limit=3):
 
     return rows[::-1]
 
+# =========================
+# QUERY REWRITER
+# =========================
+def rewrite_query(user_query, history):
 
+    memory_text = "\n".join(
+        [f"{h.role}: {h.message}" for h in history]
+    ) if history else ""
+
+    prompt = f"""
+You are a query rewriting assistant.
+
+Your job is to convert follow-up questions into complete standalone questions.
+
+Examples:
+
+Conversation:
+user: who teaches python
+assistant: python is taught by prof rashid ashraf
+
+User:
+where
+
+Standalone Question:
+where is the python class held?
+
+Conversation:
+user: who teaches python
+assistant: python is taught by prof rashid ashraf
+
+User:
+when
+
+Standalone Question:
+when is the python class scheduled?
+
+Conversation:
+user: tell me the dress code
+assistant: students must wear uniforms
+
+User:
+and what about boys
+
+Standalone Question:
+what is the boys uniform according to the college dress code?
+
+Conversation:
+{memory_text}
+
+User:
+{user_query}
+
+Standalone Question:
+"""
+
+    try:
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        rewritten_query = response.text.strip()
+
+        print("\n========== REWRITTEN QUERY ==========")
+        print(rewritten_query)
+
+        return rewritten_query
+
+    except Exception:
+        return user_query
+    
 # =========================
 # FACULTY SEARCH
 # =========================
 def search_faculty(query):
+
+    query = query.strip().lower()
 
     with engine.connect() as conn:
 
@@ -49,26 +123,17 @@ def search_faculty(query):
                     room_number
                 FROM faculty_schedule
                 WHERE
-                    LOWER(subject_name) LIKE LOWER(:query)
-                    OR LOWER(faculty_name) LIKE LOWER(:query)
-                ORDER BY
-                    CASE
-                        WHEN LOWER(subject_name) = LOWER(:exact_query) THEN 1
-                        WHEN LOWER(subject_name) LIKE LOWER(:query) THEN 2
-                        WHEN LOWER(faculty_name) LIKE LOWER(:query) THEN 3
-                        ELSE 4
-                    END
+                    LOWER(subject_name) = :query
+                    OR LOWER(faculty_name) LIKE :like_query
                 LIMIT 5
             """),
             {
-                "query": f"%{query}%",
-                "exact_query": query
+                "query": query,
+                "like_query": f"%{query}%"
             }
         )
 
-        rows = result.fetchall()
-
-    return rows
+        return result.fetchall()
 
 
 # =========================
@@ -76,6 +141,12 @@ def search_faculty(query):
 # =========================
 def generate_response(user_query, session_id):
     query = user_query.lower().strip()
+     # Handle follow-up questions
+    history = get_chat_history(session_id)
+    rewritten_query = rewrite_query(
+    user_query,
+    history
+    )
 
     # Greetings
     if query in ["hi", "hello", "hey"]:
@@ -95,17 +166,19 @@ def generate_response(user_query, session_id):
     # =========================
     # RETRIEVE DOCUMENTS
     # =========================
-    docs = retrieve_similar_chunks(user_query)
+    docs = retrieve_similar_chunks(
+    rewritten_query
+    )
 
     # print("\n========== RETRIEVED DOCS ==========")
     print(docs)
-
+    
     # =========================
     # SEARCH FACULTY TABLE
     # =========================
-    import re
+    
 
-    clean_query = user_query.lower()
+    clean_query = rewritten_query.lower()
 
     remove_words = [
         "who",
@@ -137,11 +210,14 @@ def generate_response(user_query, session_id):
             " ",
             clean_query
         )
+    clean_query = re.sub(r"[^\w\s]", "", clean_query)
     clean_query = " ".join(clean_query.split())
+    print("CLEAN QUERY:", clean_query)
+    print("USER QUERY:", user_query)
+    print("REWRITTEN QUERY:", rewritten_query)
+    print("CLEAN QUERY:", clean_query)
 
-    # Handle follow-up questions
-    history = get_chat_history(session_id)
-
+   
     followup_words = [
         "where",
         "when",
@@ -152,21 +228,22 @@ def generate_response(user_query, session_id):
         "classroom"
     ]
 
-    if (
-        query in followup_words
-        and session_id in last_subject_by_session
-    ):
+    if any(word in query for word in followup_words) and session_id in last_subject_by_session:
         clean_query = last_subject_by_session[session_id]
     
     print("USER QUERY:", user_query)
     print("CLEAN QUERY:", clean_query)
     print("LAST SUBJECT:", last_subject_by_session.get(session_id))
+    print("\n========== FACULTY SEARCH ==========")
+    print("REWRITTEN QUERY:", rewritten_query)
+    print("CLEAN QUERY:", clean_query)
     # Search faculty
     faculty_rows = search_faculty(clean_query) if clean_query.strip() else []
-
+    print("\n========== FACULTY RESULTS ==========")
+    print(faculty_rows)
     # Always define row
     row = faculty_rows[0] if faculty_rows else None
-
+    print("SEARCHING FACULTY FOR:", query)
     faculty_context = ""
 
     if row:
@@ -203,7 +280,7 @@ def generate_response(user_query, session_id):
 
             return (
                 f"{row.subject_name} class is "
-                f"held in room {row.room_number}."
+                f"held in {row.room_number}."
             )
 
         else:
@@ -214,7 +291,6 @@ def generate_response(user_query, session_id):
     Time Slot: {row.time_slot}
     Room Number: {row.room_number}
     """
-    
 
     # print("\n========== FACULTY CONTEXT ==========")
     # print(faculty_context)

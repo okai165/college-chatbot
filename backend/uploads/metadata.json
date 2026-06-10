@@ -1,32 +1,32 @@
 [
   {
+    "filename": "Principal.txt",
+    "category": "Misc",
+    "uploaded_at": "2026-06-10T08:57:02.439985",
+    "size": 2023
+  },
+  {
     "filename": "dresscode.pdf",
-    "category": "Notice",
-    "uploaded_at": "2026-05-22T11:16:57.307838",
+    "category": "Misc",
+    "uploaded_at": "2026-06-10T08:57:19.047047",
     "size": 1507549
   },
   {
-    "filename": "event.pdf",
-    "category": "Misc",
-    "uploaded_at": "2026-06-08T07:38:43.086640",
-    "size": 14231
-  },
-  {
-    "filename": "exams.pdf",
-    "category": "Exams",
-    "uploaded_at": "2026-06-08T08:52:19.642316",
-    "size": 27864
-  },
-  {
-    "filename": "syllabus.pdf",
+    "filename": "internal datesheet.pdf",
     "category": "Notice",
-    "uploaded_at": "2026-06-09T06:01:08.768463",
-    "size": 3900
+    "uploaded_at": "2026-06-10T08:58:27.030845",
+    "size": 253642
   },
   {
-    "filename": "Principal.txt",
+    "filename": "Registration & Preference Filling(Admission).txt",
+    "category": "Admission",
+    "uploaded_at": "2026-06-10T08:58:53.549594",
+    "size": 5036
+  },
+  {
+    "filename": "aboutus.txt",
     "category": "Misc",
-    "uploaded_at": "2026-06-09T17:11:15.815360",
-    "size": 2023
+    "uploaded_at": "2026-06-10T08:59:16.424037",
+    "size": 2325
   }
 ]
