@@ -227,16 +227,8 @@ function Dashboard() {
             <p style={cardValueStyle}>
               {stats.active_sessions}
             </p>
-          </div>
-          <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>
-              Total Users
-            </h3>
+          </div> 
 
-            <p style={cardValueStyle}>
-              {stats.total_users}
-            </p>
-          </div>
           <div style={cardStyle}>
             <h3 style={cardTitleStyle}>
               Total Messages

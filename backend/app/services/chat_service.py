@@ -104,7 +104,43 @@ Standalone Question:
 
     except Exception:
         return user_query
+def classify_intent(query: str) -> str:
+    query = query.lower()
+
+    if any(x in query for x in ["can i wear", "allowed", "dress code", "uniform"]):
+        return "policy"
     
+    if any(x in query for x in ["who teaches", "faculty", "teacher"]):
+        return "faculty"
+    
+    if any(x in query for x in ["where", "when", "time", "room"]):
+        return "schedule"
+    
+    return "general"  
+def handle_policy_query(query, docs):
+    context = "\n".join([d.content for d in docs if d.content])
+
+    prompt = f"""
+You are a rule validation system.
+
+Extract uniform rules from context and answer YES/NO.
+
+Context:
+{context}
+
+Question:
+{query}
+
+Rules:
+- If clothing/color not allowed → explicitly say NOT ALLOWED
+- If unclear → say not found
+"""
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+
+    return response.text 
 # =========================
 # FACULTY SEARCH
 # =========================
@@ -135,12 +171,12 @@ def search_faculty(query):
 
         return result.fetchall()
 
-
 # =========================
 # MAIN RAG FUNCTION
 # =========================
 def generate_response(user_query, session_id):
     query = user_query.lower().strip()
+    intent = classify_intent(user_query)
      # Handle follow-up questions
     history = get_chat_history(session_id)
     rewritten_query = rewrite_query(
@@ -169,7 +205,8 @@ def generate_response(user_query, session_id):
     docs = retrieve_similar_chunks(
     rewritten_query
     )
-
+    if intent == "policy":
+        return handle_policy_query(user_query, docs)
     # print("\n========== RETRIEVED DOCS ==========")
     print(docs)
     
