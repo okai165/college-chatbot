@@ -121,9 +121,9 @@ def handle_policy_query(query, docs):
     context = "\n".join([d.content for d in docs if d.content])
 
     prompt = f"""
-You are a rule validation system.
+You are a college policy validation assistant.
 
-Extract uniform rules from context and answer YES/NO.
+Extract rules from the context and answer clearly.
 
 Context:
 {context}
@@ -132,24 +132,28 @@ Question:
 {query}
 
 Rules:
-- If clothing/color not allowed → explicitly say NOT ALLOWED
+- If the action is not allowed → explicitly say Verdict: NOT ALLOWED and explain why, referencing the policy
+- If the action is allowed → explicitly say Verdict: ALLOWED and explain why, referencing the policy
 - If unclear → say not found
+- Always provide a short explanation based on the policy instead of only saying ALLOWED/NOT ALLOWED
+- Format the answer as:
+  Verdict: ALLOWED/NOT ALLOWED
+  Policy Reference: <short explanation from context>
 """
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt
     )
 
-    return response.text 
+    return response.text
+
 # =========================
 # FACULTY SEARCH
 # =========================
-def search_faculty(query):
-
+def search_faculty(query: str):
     query = query.strip().lower()
 
     with engine.connect() as conn:
-
         result = conn.execute(
             text("""
                 SELECT
@@ -159,17 +163,33 @@ def search_faculty(query):
                     room_number
                 FROM faculty_schedule
                 WHERE
-                    LOWER(subject_name) = :query
+                    LOWER(subject_name) LIKE :like_query
                     OR LOWER(faculty_name) LIKE :like_query
                 LIMIT 5
             """),
             {
-                "query": query,
                 "like_query": f"%{query}%"
             }
         )
-
         return result.fetchall()
+
+
+def clean_faculty_query(rewritten_query: str) -> str:
+    query = rewritten_query.lower()
+    # Remove filler words but keep subject keywords intact
+    remove_words = [
+        "who", "teaches", "teach", "teacher", "faculty",
+        "of", "what", "when", "where", "is", "the", "class",
+        "room", "classroom", "timing", "time", "schedule",
+        "for", "at", "in"
+    ]
+    for word in remove_words:
+        query = re.sub(rf"\b{word}\b", " ", query)
+
+    query = re.sub(r"[^\w\s]", "", query)  # remove punctuation
+    query = " ".join(query.split())        # normalize spaces
+    return query.strip()
+
 
 # =========================
 # MAIN RAG FUNCTION
@@ -177,151 +197,57 @@ def search_faculty(query):
 def generate_response(user_query, session_id):
     query = user_query.lower().strip()
     intent = classify_intent(user_query)
-     # Handle follow-up questions
+
+    # Handle follow-up questions
     history = get_chat_history(session_id)
-    rewritten_query = rewrite_query(
-    user_query,
-    history
-    )
+    rewritten_query = rewrite_query(user_query, history)
 
     # Greetings
     if query in ["hi", "hello", "hey"]:
-        return (
-            "Hello! 👋 Welcome to the College Information Assistant. "
-            "How can I help you today?"
-        )
-
+        return "Hello! 👋 Welcome to the College Information Assistant. How can I help you today?"
     if query == "how are you":
         return "I'm doing well. How can I assist you today?"
-
     if query in ["thanks", "thank you"]:
         return "You're welcome! 😊"
-
     if query in ["bye", "goodbye"]:
         return "Goodbye! Have a great day."
+
     # =========================
     # RETRIEVE DOCUMENTS
     # =========================
-    docs = retrieve_similar_chunks(
-    rewritten_query
-    )
+    docs = retrieve_similar_chunks(rewritten_query)
+
     if intent == "policy":
         return handle_policy_query(user_query, docs)
-    # print("\n========== RETRIEVED DOCS ==========")
-    print(docs)
-    
+
     # =========================
-    # SEARCH FACULTY TABLE
+    # FACULTY SEARCH
     # =========================
-    
+    clean_query = clean_faculty_query(rewritten_query)
 
-    clean_query = rewritten_query.lower()
+    followup_words = ["where", "when", "time", "timing", "at what time", "room", "classroom"]
 
-    remove_words = [
-        "who",
-        "teaches",
-        "teach",
-        "teacher",
-        "faculty",
-        "of",
-        "what",
-        "when",
-        "where",
-        "is",
-        "the",
-        "class",
-        "room",
-        "classroom",
-        "timing",
-        "time",
-        "schedule",
-        "for",
-        "at",
-        "in"
-    ]
+    # If it's a follow-up but we don't have a subject stored, return fallback immediately
+    if any(word in query for word in followup_words) and session_id not in last_subject_by_session:
+        return "Sorry, I cannot find relevant information in the college documents."
 
-    for word in remove_words:
-
-        clean_query = re.sub(
-            rf"\b{word}\b",
-            " ",
-            clean_query
-        )
-    clean_query = re.sub(r"[^\w\s]", "", clean_query)
-    clean_query = " ".join(clean_query.split())
-    print("CLEAN QUERY:", clean_query)
-    print("USER QUERY:", user_query)
-    print("REWRITTEN QUERY:", rewritten_query)
-    print("CLEAN QUERY:", clean_query)
-
-   
-    followup_words = [
-        "where",
-        "when",
-        "time",
-        "timing",
-        "at what time",
-        "room",
-        "classroom"
-    ]
-
+    # If it's a follow-up and we DO have a subject stored, reuse it
     if any(word in query for word in followup_words) and session_id in last_subject_by_session:
         clean_query = last_subject_by_session[session_id]
-    
-    print("USER QUERY:", user_query)
-    print("CLEAN QUERY:", clean_query)
-    print("LAST SUBJECT:", last_subject_by_session.get(session_id))
-    print("\n========== FACULTY SEARCH ==========")
-    print("REWRITTEN QUERY:", rewritten_query)
-    print("CLEAN QUERY:", clean_query)
-    # Search faculty
-    faculty_rows = search_faculty(clean_query) if clean_query.strip() else []
-    print("\n========== FACULTY RESULTS ==========")
-    print(faculty_rows)
-    # Always define row
-    row = faculty_rows[0] if faculty_rows else None
-    print("SEARCHING FACULTY FOR:", query)
-    faculty_context = ""
 
+    faculty_rows = search_faculty(clean_query) if clean_query else []
+    row = faculty_rows[0] if faculty_rows else None
+
+    faculty_context = ""
     if row:
         last_subject_by_session[session_id] = row.subject_name.lower()
-
-        if (
-            "who teaches" in query
-            or "teacher" in query
-            or "faculty" in query
-        ):
-
-            return (
-                f"{row.subject_name} is taught by "
-                f"{row.faculty_name}."
-            )
-
-        elif (
-            "time" in query
-            or "when" in query
-            or "timing" in query
-            or "at what time" in query
-        ):
-
-            return (
-                f"{row.subject_name} class is "
-                f"scheduled from {row.time_slot}."
-            )
-
-        elif (
-            "room" in query
-            or "where" in query
-            or "classroom" in query
-        ):
-
-            return (
-                f"{row.subject_name} class is "
-                f"held in {row.room_number}."
-            )
-
+        if "who teaches" in query or "teacher" in query or "faculty" in query:
+            return f"{row.subject_name} is taught by {row.faculty_name}."
+        elif "time" in query or "when" in query or "timing" in query or "at what time" in query:
+            return f"{row.subject_name} class is scheduled from {row.time_slot}."
+        elif "room" in query or "where" in query or "classroom" in query:
+            return f"{row.subject_name} class is held in {row.room_number}."
         else:
-
             return f"""
     Faculty Name: {row.faculty_name}
     Subject: {row.subject_name}
@@ -329,83 +255,35 @@ def generate_response(user_query, session_id):
     Room Number: {row.room_number}
     """
 
-    # print("\n========== FACULTY CONTEXT ==========")
-    # print(faculty_context)
 
     # =========================
     # BUILD DOCUMENT CONTEXT
     # =========================
     context_chunks = []
-
-    for row in docs:
-
+    for i, row in enumerate(docs):
         if row.content:
-
             cleaned = row.content.strip()
-
             if cleaned:
-                context_chunks.append(cleaned)
-    
-    print("\n========== ALL CHUNKS ==========")
+                # Include distance score for relevance weighting
+                context_chunks.append(
+                    f"[Chunk {i+1} | distance={row.distance:.4f}] {cleaned}"
+                )
 
-    for i, chunk in enumerate(context_chunks):
-        print(f"\nCHUNK {i+1}")
-        print(chunk[:1000])
+    if not context_chunks and not faculty_rows:
+        return "Sorry, I cannot find relevant information in the college documents."
+
+    # Limit context length (truncate if > 3000 chars)
     document_context = "\n\n".join(context_chunks)
-    
-    # =========================
-    # FINAL CONTEXT
-    # =========================
+    if len(document_context) > 3000:
+        document_context = document_context[:3000] + "\n...[truncated]"
+
     context = faculty_context + "\n\n" + document_context
-    # simple_keywords = [
-    #     "syllabus",
-    #     "faculty",
-    #     "teacher",
-    #     "teachers",
-    #     "exam",
-    #     "examination",
-    #     "admission",
-    #     "notice",
-    #     "result",
-    #     "timetable",
-    #     "schedule"
-    # ]
 
-    # if any(word in query for word in simple_keywords):
-
-    #     if context.strip():
-    #         return context
-
-    # print("\n========== FINAL CONTEXT ==========")
-    # print(context[:1500])
-
-    # =========================
-    # STRICT GUARD
-    # =========================
-    if (
-        len(context_chunks) == 0
-        and len(faculty_rows) == 0
-    ):
-
-        return (
-            "Sorry, I cannot find relevant information "
-            "in the college documents."
-        )
-    # =========================
-    # DIRECT RESPONSE
-    # =========================
-    # if len(context) < 3000 and context.strip():
-
-    #     return context
     # =========================
     # CHAT MEMORY
     # =========================
     history = get_chat_history(session_id)
-    
-
-    memory_text = "\n".join(
-        [f"{h.role}: {h.message}" for h in history]
-    ) if history else ""
+    memory_text = "\n".join([f"{h.role}: {h.message}" for h in history]) if history else ""
 
     # =========================
     # STRICT PROMPT
@@ -419,6 +297,7 @@ RULES:
 - If answer is not present in context, say exactly:
   "Sorry, I cannot find relevant information in the college documents."
 - Keep responses short and factual
+- Prefer chunks with lower distance scores (more relevant)
 
 CHAT HISTORY:
 {memory_text}
@@ -436,28 +315,20 @@ USER QUESTION:
     # GEMINI RESPONSE WITH RETRY
     # =========================
     for attempt in range(3):
-
         try:
             print("Gemini API call started")
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt
             )
-
             print("\n========== GEMINI RESPONSE ==========\n")
             print(response.text)
-
             return response.text
-
         except Exception as e:
-
             print(f"\n❌ RETRY {attempt + 1}/3")
             import traceback
             traceback.print_exc()
-
             time.sleep(2)
 
-    return (
-        "AI service is temporarily busy. "
-        "Please try again in a few seconds."
-    )
+    return "AI service is temporarily busy. Please try again in a few seconds."
+

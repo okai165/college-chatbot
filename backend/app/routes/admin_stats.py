@@ -42,7 +42,9 @@ def get_stats(
                 SELECT COUNT(*)
                 FROM sessions
                 WHERE last_seen > NOW() - INTERVAL '10 minutes'
-            """)
+                  AND started_at >= NOW() - (:days || ' days')::interval
+            """),
+            {"days": days}
         ).scalar()
 
         avg_messages_per_session = conn.execute(
@@ -67,7 +69,9 @@ def get_stats(
             text("""
                 SELECT COUNT(DISTINCT session_id)
                 FROM chat_history
-            """)
+                WHERE created_at >= NOW() - (:days || ' days')::interval
+            """),
+            {"days": days}
         ).scalar()
 
         # =========================
@@ -78,70 +82,56 @@ def get_stats(
             text("""
                 SELECT
                 CASE
-
-                    WHEN
-                        LOWER(message) LIKE '%exam%'
-                        OR LOWER(message) LIKE '%examination%'
-                        OR LOWER(message) LIKE '%result%'
-                        OR LOWER(message) LIKE '%datesheet%'
-                        OR LOWER(message) LIKE '%hall ticket%'
+                    WHEN LOWER(message) LIKE '%exam%'
+                         OR LOWER(message) LIKE '%examination%'
+                         OR LOWER(message) LIKE '%result%'
+                         OR LOWER(message) LIKE '%datesheet%'
+                         OR LOWER(message) LIKE '%hall ticket%'
                     THEN 'Exams'
 
-                    WHEN
-                        LOWER(message) LIKE '%faculty%'
-                        OR LOWER(message) LIKE '%teacher%'
-                        OR LOWER(message) LIKE '%teach%'
-                        OR LOWER(message) LIKE '%class%'
-                        OR LOWER(message) LIKE '%room%'
-                        OR LOWER(message) LIKE '%classroom%'
-                        OR LOWER(message) LIKE '%timing%'
-                        OR LOWER(message) LIKE '%time%'
-                        OR LOWER(message) LIKE '%schedule%'
+                    WHEN LOWER(message) LIKE '%faculty%'
+                         OR LOWER(message) LIKE '%teacher%'
+                         OR LOWER(message) LIKE '%teach%'
+                         OR LOWER(message) LIKE '%class%'
+                         OR LOWER(message) LIKE '%room%'
+                         OR LOWER(message) LIKE '%classroom%'
+                         OR LOWER(message) LIKE '%timing%'
+                         OR LOWER(message) LIKE '%time%'
+                         OR LOWER(message) LIKE '%schedule%'
                     THEN 'Faculty'
 
-                    WHEN
-                        LOWER(message) LIKE '%syllabus%'
-                        OR LOWER(message) LIKE '%subject%'
+                    WHEN LOWER(message) LIKE '%syllabus%'
+                         OR LOWER(message) LIKE '%subject%'
                     THEN 'Syllabus'
 
-                    WHEN
-                        LOWER(message) LIKE '%admission%'
-                        OR LOWER(message) LIKE '%admissions%'
-                        OR LOWER(message) LIKE '%admit%'
+                    WHEN LOWER(message) LIKE '%admission%'
+                         OR LOWER(message) LIKE '%admissions%'
+                         OR LOWER(message) LIKE '%admit%'
                     THEN 'Admission'
 
-                    WHEN
-                        LOWER(message) LIKE '%library%'
+                    WHEN LOWER(message) LIKE '%library%'
                     THEN 'Library'
 
-                    WHEN
-                        LOWER(message) LIKE '%event%'
-                        OR LOWER(message) LIKE '%workshop%'
-                        OR LOWER(message) LIKE '%sports%'
-                        OR LOWER(message) LIKE '%cultural%'
+                    WHEN LOWER(message) LIKE '%event%'
+                         OR LOWER(message) LIKE '%workshop%'
+                         OR LOWER(message) LIKE '%sports%'
+                         OR LOWER(message) LIKE '%cultural%'
                     THEN 'Events'
 
                     ELSE 'Other'
-
                 END AS category,
                 COUNT(*) AS total
-
                 FROM chat_history
-
                 WHERE role = 'user'
-
+                  AND created_at >= NOW() - (:days || ' days')::interval
                 GROUP BY category
-
                 ORDER BY total DESC
-                 
-            """)
+            """),
+            {"days": days}
         ).fetchall()
 
         top_categories = [
-            {
-                "category": row.category,
-                "total": row.total
-            }
+            {"category": row.category, "total": row.total}
             for row in top_categories_result
         ]
 
@@ -151,9 +141,7 @@ def get_stats(
 
         messages_graph = conn.execute(
             text("""
-                SELECT
-                    DATE(created_at) AS day,
-                    COUNT(*) AS total
+                SELECT DATE(created_at) AS day, COUNT(*) AS total
                 FROM chat_history
                 WHERE created_at >= NOW() - (:days || ' days')::interval
                 GROUP BY day
@@ -164,9 +152,7 @@ def get_stats(
 
         sessions_graph = conn.execute(
             text("""
-                SELECT
-                    DATE(started_at) AS day,
-                    COUNT(*) AS total
+                SELECT DATE(started_at) AS day, COUNT(*) AS total
                 FROM sessions
                 WHERE started_at >= NOW() - (:days || ' days')::interval
                 GROUP BY day
@@ -178,32 +164,18 @@ def get_stats(
     return {
         "admin": username,
         "days": days,
-
         "total_sessions": total_sessions,
         "active_sessions": active_sessions,
         "total_users": total_users,
         "total_messages": total_messages,
-
-        "avg_messages_per_session": round(
-            avg_messages_per_session,
-            2
-        ),
-
+        "avg_messages_per_session": round(avg_messages_per_session, 2),
         "top_categories": top_categories,
-
         "messages_graph": [
-            {
-                "day": str(row.day),
-                "total": row.total
-            }
+            {"day": str(row.day), "total": row.total}
             for row in messages_graph
         ],
-
         "sessions_graph": [
-            {
-                "day": str(row.day),
-                "total": row.total
-            }
+            {"day": str(row.day), "total": row.total}
             for row in sessions_graph
         ]
     }
