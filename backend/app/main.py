@@ -11,14 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.chat import router as chat_router
 from app.routes.notifications import router as notifications_router
-# from app.crawler.scheduler import start_scheduler
+from app.crawler.scheduler import start_scheduler
 from app.routes.admissions import router as admissions_router
 print("API KEY LOADED:", os.getenv("GOOGLE_API_KEY"))
 
 app = FastAPI()
 @app.on_event("startup")
 async def startup_event():
-    print("Application Started")
+    
+    print("STARTUP EVENT RUNNING")
+
+    start_scheduler()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

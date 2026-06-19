@@ -1,6 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.crawler.crawler import crawl_admissions
-
+from datetime import datetime
 scheduler = BackgroundScheduler()
 
 def start_scheduler():
@@ -10,7 +10,8 @@ def start_scheduler():
     scheduler.add_job(
         crawl_admissions,
         "interval",
-        minutes=1,
+        hours=3,
+        next_run_time=datetime.now(),
         id="college_crawler",
         replace_existing=True
     )

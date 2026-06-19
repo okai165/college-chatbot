@@ -11,6 +11,9 @@ def save_admission_document(
 ):
     try:
 
+        print("\n========== SAVE_ADMISSION_DOCUMENT ==========")
+        print("TITLE:", title)
+
         full_text = f"""
 TITLE:
 {title}
@@ -25,16 +28,8 @@ CONTENT:
 {content}
 """
 
-        embedding = generate_embedding(full_text)
-
-        embedding_str = (
-            "[" +
-            ",".join(map(str, embedding))
-            + "]"
-        )
-        
         with engine.begin() as conn:
-            # CHECK IF ALREADY EXISTS
+
             exists = conn.execute(
                 text("""
                     SELECT 1
@@ -50,7 +45,16 @@ CONTENT:
             if exists:
                 print(f"Already exists: {title}")
                 return
-           
+
+        print("Generating embedding...")
+
+        embedding = generate_embedding(full_text)
+
+        embedding_str = (
+            "[" +
+            ",".join(map(str, embedding))
+            + "]"
+        )
 
         with engine.begin() as conn:
 
@@ -79,12 +83,8 @@ CONTENT:
                 }
             )
 
-            print("SAVE_ADMISSION_DOCUMENT CALLED")
-            print("TITLE =", title)
+        print(f"Saved Admission Doc: {title}")
 
     except Exception as e:
 
-        print(
-            "ADMISSION SAVE ERROR:",
-            e
-        )
+        print("ADMISSION SAVE ERROR:", e)

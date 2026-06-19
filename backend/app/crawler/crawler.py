@@ -1,7 +1,4 @@
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-
+from app.crawler.admission_api import get_admission_updates
 from app.crawler.pdf_downloader import download_pdf
 from app.crawler.pdf_parser import extract_text
 from app.crawler.gemini_extractor import extract_notification_data
@@ -10,107 +7,101 @@ from app.db.notification_service import (
     save_notification,
     notification_exists
 )
-from app.rag.admission_ingest import save_admission_document
+
+from app.rag.admission_ingest import (
+    save_admission_document
+)
+
+
 def crawl_admissions():
 
-    url = "https://www.gcwmaroad.edu.in/admissions.php"
+    updates = get_admission_updates()
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    response = requests.get(
-        url,
-        headers=headers
+    print(
+        f"\nFOUND {len(updates)} ADMISSION NOTICES\n"
     )
 
-    soup = BeautifulSoup(
-        response.text,
-        "html.parser"
-    )
-
-    processed_urls = set()
-
-    print("\nPDF LINKS FOUND:\n")
-
-    for link in soup.find_all("a"):
-
-        href = link.get("href")
-
-        if not href:
-            continue
-
-        if ".pdf" not in href.lower():
-            continue
-
-        pdf_url = urljoin(url, href)
-
-        # Skip duplicate links
-        if pdf_url in processed_urls:
-            continue
-
-        processed_urls.add(pdf_url)
-
-        # Skip NIRF reports
-        filename = pdf_url.lower()
-
-        if "nirf" in filename:
-            print(f"Skipping NIRF Report: {pdf_url}")
-            continue
+    for notice in updates:
 
         try:
 
-            print(f"\nProcessing: {pdf_url}")
+            title = notice["title"]
+            pdf_url = notice["pdf_url"]
+            date = notice["date"]
 
-            # Skip if already saved
-            if notification_exists(pdf_url):
-                print("Already processed. Skipping Gemini.")
+            print("\n================================")
+            print("TITLE :", title)
+            print("DATE  :", date)
+            print("PDF   :", pdf_url)
+            print("================================")
+
+            # Skip notices without PDF
+            if not pdf_url:
+
+                print(
+                    "No PDF available. Skipping."
+                )
+
                 continue
 
-        
+            # Download PDF
             pdf_path = download_pdf(pdf_url)
 
+            # Extract PDF text
             text = extract_text(pdf_path)
 
             if not text.strip():
 
-                print("No text extracted")
+                print(
+                    "No text extracted"
+                )
+
                 continue
-            
-            title = link.get_text(strip=True)
-            print("CALLING SAVE_ADMISSION_DOCUMENT")
+
+            print(
+                "CALLING SAVE_ADMISSION_DOCUMENT"
+            )
+
+            # Save to RAG documents table
             save_admission_document(
                 title=title,
-                date="",
+                date=date,
                 pdf_url=pdf_url,
                 content=text
             )
 
+            # Skip Gemini if already saved
             if notification_exists(pdf_url):
-                print("Notification already exists. Skipping Gemini.")
+
+                print(
+                    "Notification already exists. Skipping Gemini."
+                )
+
                 continue
 
-            print("Sending to Gemini...")
+            print(
+                "Sending to Gemini..."
+            )
 
             data = extract_notification_data(text)
 
-
-            print("Gemini Response Received")
-
-            print(data)
+            print(
+                "Gemini Response Received"
+            )
 
             if not data.get("title"):
-                print("Skipping Empty Notification")
-                continue
 
-            # Skip empty responses
-            if not data.get("title"):
-                print("Skipping empty Gemini result")
+                print(
+                    "Skipping Empty Notification"
+                )
+
                 continue
 
             data["source_url"] = pdf_url
 
-            print("Saving to Database...")
+            print(
+                "Saving Notification..."
+            )
 
             save_notification(data)
 
@@ -121,7 +112,7 @@ def crawl_admissions():
         except Exception as e:
 
             print(
-                f"Error processing {pdf_url}: {e}"
+                f"Error processing notice: {e}"
             )
 
             continue
