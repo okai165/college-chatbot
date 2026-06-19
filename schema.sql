@@ -56,3 +56,38 @@ CREATE TABLE sessions (
 );
 ALTER TABLE documents
 ADD COLUMN document_name TEXT;
+CREATE TABLE notifications (
+    id SERIAL PRIMARY KEY,
+
+    title TEXT,
+    category TEXT,
+    summary TEXT,
+
+    start_date TEXT,
+    last_date TEXT,
+
+    eligibility TEXT,
+
+    required_documents TEXT[],
+
+    source_url TEXT UNIQUE,
+
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE processed_documents (
+    id SERIAL PRIMARY KEY,
+
+    source_url TEXT UNIQUE,
+
+    processed_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE admission_tables
+(
+    id SERIAL PRIMARY KEY,
+
+    title TEXT,
+
+    table_data JSONB,
+
+    created_at TIMESTAMP DEFAULT NOW()
+);

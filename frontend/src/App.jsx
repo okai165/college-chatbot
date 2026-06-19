@@ -16,7 +16,22 @@ import AdminHome from "./pages/AdminHome";
 import Dashboard from "./pages/Dashboard";
 import FacultyManager from "./pages/FacultyManager";
 import UploadDocuments from "./pages/UploadDocuments";
-
+import HeroSection from "./components/HeroSection";
+import FeatureSection from "./components/FeatureSection";
+import { cardCategories } from "./data/cards";
+import Admissions from "./pages/Admissions";
+import AdmissionsPage from "./pages/AdmissionsPage";
+import { useNavigate } from "react-router-dom";
+import AdmissionUpdatesPage from "./pages/AdmissionUpdatesPage";
+import ActivitySchedulePage from "./pages/ActivitySchedulePage";
+import EligibilityPage from "./pages/EligibilityPage";
+import FeeStructurePage from "./pages/FeeStructurePage";
+import DocumentChecklistPage from "./pages/DocumentChecklistPage";
+import AvailableCoursesPage from "./pages/AvailableCoursesPage";
+import AdmissionCommitteePage from "./pages/AdmissionCommitteePage";
+import "./styles/cards.css";
+import "./styles/hero.css";
+import "./styles/home.css";
 function ChatWidget() {
 
   // =========================
@@ -84,7 +99,74 @@ function ChatWidget() {
   // =========================
   // SAVE TO LOCAL STORAGE
   // =========================
+  const cardQuestions = {
+    Admissions: "Tell me about admissions.",
+    Courses: "Tell me about available courses.",
+    Scholarships: "Tell me about scholarships.",
+    Examinations: "Tell me about examinations.",
+    Notices: "Show latest notices.",
+    "Academic Calendar": "Show academic calendar.",
+    "Document Library": "Show available documents.",
+    "Forms & Downloads": "Show available forms.",
+    "Faculty Directory": "Show faculty information.",
+    "Department Directory": "Show department information.",
+    "Campus Facilities": "Show campus facilities.",
+    "Events & Workshops": "Show recent events and workshops.",
+    FAQ: "Show frequently asked questions.",
+    "Contact Us": "Show college contact information."
+  };
+  const navigate = useNavigate();
+  const handleCardClick = (cardTitle) => {
 
+    if (cardTitle === "Admissions") {
+      navigate("/admissions");
+      return;
+    }
+
+    if (cardTitle === "Admission Updates") {
+      navigate("/admission-updates");
+      return;
+    }
+
+    if (cardTitle === "Activity Schedule") {
+      navigate("/activity-schedule");
+      return;
+    }
+
+    if (cardTitle === "Eligibility Criteria") {
+      navigate("/eligibility");
+      return;
+    }
+
+    if (cardTitle === "Fee Structure") {
+      navigate("/fee-structure");
+      return;
+    }
+
+    if (cardTitle === "Document Checklist") {
+      navigate("/document-checklist");
+      return;
+    }
+
+    if (cardTitle === "Available Courses") {
+      navigate("/available-courses");
+      return;
+    }
+
+    if (cardTitle === "Admission Committee") {
+      navigate("/admission-committee");
+      return;
+    }
+
+    setOpen(true);
+
+    setTimeout(() => {
+      sendMessage(
+        cardQuestions[cardTitle] ||
+        `Tell me about ${cardTitle}`
+      );
+    }, 300);
+  };
   useEffect(() => {
 
     localStorage.setItem(
@@ -519,72 +601,23 @@ function ChatWidget() {
   <div>
   {/* Landing Content */}
    {!open && (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        padding: "40px 20px",
-        maxWidth: "900px",
-        margin: "0 auto"
-      }}    
-    > 
-    
-  {/* College Logo */}
-  {/* <img
-    src="/college-logo.png"   // replace with your logo
-    alt="GCW M.A Road"
-    style={{
-      width: "120px",
-      height: "120px",
-      objectFit: "contain",
-      marginBottom: "15px"
-    }}
-  /> */}
+  <div className="container">
 
-  <h1
-    style={{
-      fontSize: "27px",
-      fontWeight: "700",
-      marginBottom: "12px"
-    }}
-  >
-    Government College for Women M.A. Road Srinagar
-  </h1>
+    <HeroSection
+      onChatOpen={() => setOpen(true)}
+    />
 
-  <p
-    style={{
-      fontSize: "22px",
-      color: "#ced7e4",
-      maxWidth: "700px",
-      margin: "0 auto 30px"
-    }}
-  >
-    Welcome to the College AI Assistant.
-    
-  </p>
+    {cardCategories.map((category) => (
+      <FeatureSection
+        key={category.title}
+        title={category.title}
+        cards={category.cards}
+        onCardClick={handleCardClick}
+      />
+    ))}
 
-  {/* Feature Cards */}
-  <div className="feature-section">
-    <h2 className="feature-title">You can explore</h2>
-
-    <ul className="feature-list">
-      <li>Faculty information and profiles</li>
-      <li>Admission process and eligibility details</li>
-      <li>Exam schedules and updates</li>
-      <li>Campus facilities and announcements</li>
-    </ul>
- </div>
-</div>
+  </div>
 )}
-    {/* FLOAT BUTTON */}
-    {!open && (
-     <div className={`chat-fab ${open ? "active" : ""}`} onClick={() => setOpen(!open)}>
-      <span>Click Here To Chat</span>
-     </div>
-    )}
 
     {/* CHAT WINDOW */}
 
@@ -1075,6 +1108,45 @@ export default function App() {
       <Route
         path="/admin/upload"
         element={<UploadDocuments />}
+      />
+      
+      <Route
+        path="/admissions"
+        element={<AdmissionsPage />}
+      />
+      <Route
+        path="/admission-updates"
+        element={<AdmissionUpdatesPage />}
+      />
+
+      <Route
+        path="/activity-schedule"
+        element={<ActivitySchedulePage />}
+      />
+
+      <Route
+        path="/eligibility"
+        element={<EligibilityPage />}
+      />
+
+      <Route
+        path="/fee-structure"
+        element={<FeeStructurePage />}
+      />
+
+      <Route
+        path="/document-checklist"
+        element={<DocumentChecklistPage />}
+      />
+
+      <Route
+        path="/available-courses"
+        element={<AvailableCoursesPage />}
+      />
+
+      <Route
+        path="/admission-committee"
+        element={<AdmissionCommitteePage />}
       />
 
     </Routes>

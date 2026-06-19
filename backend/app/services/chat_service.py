@@ -3,6 +3,7 @@ from app.db.database import engine
 from app.rag.retriever import retrieve_similar_chunks
 from app.services.llm import client
 from sqlalchemy import text
+from app.rag.notification_retriever import search_notifications
 import time
 import re 
 
@@ -215,10 +216,31 @@ def generate_response(user_query, session_id):
     # =========================
     # RETRIEVE DOCUMENTS
     # =========================
+
     docs = retrieve_similar_chunks(rewritten_query)
 
-    if intent == "policy":
-        return handle_policy_query(user_query, docs)
+    notifications = []
+
+    admission_keywords = [
+        "admission",
+        "eligibility",
+        "fee",
+        "fees",
+        "fyug",
+        "honours",
+        "honors",
+        "intake",
+        "seat",
+        "notification",
+        "notice",
+        "course"
+    ]
+
+    if any(
+        keyword in rewritten_query.lower()
+        for keyword in admission_keywords
+    ):
+        notifications = search_notifications()
 
     # =========================
     # FACULTY SEARCH
@@ -259,6 +281,23 @@ def generate_response(user_query, session_id):
     # =========================
     # BUILD DOCUMENT CONTEXT
     # =========================
+    notification_context = ""
+
+    for n in notifications:
+
+        notification_context += f"""
+    Title: {n.title}
+
+    Summary: {n.summary}
+
+    Eligibility: {n.eligibility}
+
+    Start Date: {n.start_date}
+
+    Last Date: {n.last_date}
+
+    -----------------------
+    """
     context_chunks = []
     for i, row in enumerate(docs):
         if row.content:
@@ -277,7 +316,17 @@ def generate_response(user_query, session_id):
     if len(document_context) > 3000:
         document_context = document_context[:3000] + "\n...[truncated]"
 
-    context = faculty_context + "\n\n" + document_context
+    context = f"""
+    COLLEGE DOCUMENTS:
+
+    {faculty_context}
+
+    {document_context}
+
+    ADMISSION NOTIFICATIONS:
+
+    {notification_context}
+    """
 
     # =========================
     # CHAT MEMORY
@@ -292,12 +341,14 @@ def generate_response(user_query, session_id):
 You are a strict college assistant chatbot.
 
 RULES:
-- Answer ONLY from the provided CONTEXT
-- Never use outside knowledge
-- If answer is not present in context, say exactly:
-  "Sorry, I cannot find relevant information in the college documents."
-- Keep responses short and factual
-- Prefer chunks with lower distance scores (more relevant)
+
+- Answer ONLY from provided context
+- Use admission notifications when relevant
+- Use college documents when relevant
+- Never invent information
+- If information is unavailable say:
+
+Sorry, I cannot find relevant information in the college documents.
 
 CHAT HISTORY:
 {memory_text}
@@ -305,7 +356,7 @@ CHAT HISTORY:
 CONTEXT:
 {context}
 
-USER QUESTION:
+QUESTION:
 {user_query}
 """
 
