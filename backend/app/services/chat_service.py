@@ -218,7 +218,7 @@ def generate_response(user_query, session_id):
     # =========================
 
     docs = retrieve_similar_chunks(rewritten_query)
-
+    
     notifications = []
 
     admission_keywords = [

@@ -91,3 +91,40 @@ CREATE TABLE admission_tables
 
     created_at TIMESTAMP DEFAULT NOW()
 );
+CREATE TABLE admission_updates (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    published_date TIMESTAMP,
+    pdf_url TEXT UNIQUE,
+    summary TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE fee_structures (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    pdf_url TEXT UNIQUE,
+    details TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE scholarships (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    pdf_url TEXT UNIQUE,
+    details TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE notices (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    pdf_url TEXT UNIQUE,
+    content TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE events (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    event_date TEXT,
+    pdf_url TEXT UNIQUE,
+    details TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);

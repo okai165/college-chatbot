@@ -3,6 +3,25 @@ from app.db.database import engine
 from app.rag.embedder import generate_embedding
 
 
+def admission_exists(pdf_url):
+
+    with engine.connect() as conn:
+
+        result = conn.execute(
+            text("""
+                SELECT 1
+                FROM documents
+                WHERE content LIKE :url
+                LIMIT 1
+            """),
+            {
+                "url": f"%{pdf_url}%"
+            }
+        )
+
+        return result.fetchone() is not None
+
+
 def save_admission_document(
     title,
     date,
@@ -27,24 +46,6 @@ PDF:
 CONTENT:
 {content}
 """
-
-        with engine.begin() as conn:
-
-            exists = conn.execute(
-                text("""
-                    SELECT 1
-                    FROM documents
-                    WHERE document_name = :name
-                    LIMIT 1
-                """),
-                {
-                    "name": title
-                }
-            ).fetchone()
-
-            if exists:
-                print(f"Already exists: {title}")
-                return
 
         print("Generating embedding...")
 

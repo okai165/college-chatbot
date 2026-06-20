@@ -17,7 +17,12 @@ def download_pdf(url):
         filename
     )
 
-    response = requests.get(url)
+    response = requests.get(
+        url,
+        timeout=60
+    )
+
+    response.raise_for_status()
 
     with open(save_path, "wb") as f:
         f.write(response.content)
