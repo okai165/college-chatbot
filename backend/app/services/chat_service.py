@@ -172,11 +172,13 @@ def search_faculty(query: str):
                     room_number
                 FROM faculty_schedule
                 WHERE
-                    LOWER(subject_name) LIKE :like_query
+                    LOWER(subject_name) = :query
+                    OR LOWER(subject_name) LIKE :like_query
                     OR LOWER(faculty_name) LIKE :like_query
                 LIMIT 5
             """),
-            {
+            {   
+                "query": query,
                 "like_query": f"%{query}%"
             }
         )
@@ -240,7 +242,25 @@ def generate_response(user_query, session_id):
 
     # Analyze query
     analysis = analyze_query(user_query)
+    
+    if analysis["intent"] == "general":
 
+        lower_query = user_query.lower()
+
+        if "teach" in lower_query or "faculty" in lower_query:
+            analysis["intent"] = "faculty"
+
+            if "artificial intelligence" in lower_query:
+                analysis["subject"] = "ai"
+
+            elif "python" in lower_query:
+                analysis["subject"] = "python"
+
+            elif "java" in lower_query:
+                analysis["subject"] = "java"
+
+            elif "javascript" in lower_query:
+                analysis["subject"] = "javascript"
     print("\n========== QUERY ANALYSIS ==========")
     print(analysis)
 
@@ -308,12 +328,7 @@ def generate_response(user_query, session_id):
     # =========================
     print("\n========== FACULTY SEARCH ==========")
     print("Search Query:", clean_query)
-    subject = analysis.get("subject", "")
-
-    if subject:
-        clean_query = subject
-    else:
-        clean_query = clean_faculty_query(rewritten_query)
+    
     followup_words = ["where", "when", "time", "timing", "at what time", "room", "classroom"]
 
     # If it's a follow-up but we don't have a subject stored, return fallback immediately
