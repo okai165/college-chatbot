@@ -4,6 +4,9 @@ from app.rag.retriever import retrieve_similar_chunks
 from app.services.llm import client
 from sqlalchemy import text
 from app.rag.notification_retriever import search_notifications
+from app.rag.keyword_search import keyword_search
+from app.rag.query_analyzer import analyze_query
+from app.rag.subject_aliases import SUBJECT_ALIASES
 import time
 import re 
 
@@ -191,7 +194,19 @@ def clean_faculty_query(rewritten_query: str) -> str:
     query = " ".join(query.split())        # normalize spaces
     return query.strip()
 
+# =========================
+# SUBJECT NORMALIZER
+# =========================
 
+def normalize_subject(subject):
+
+    if not subject:
+        return ""
+
+    subject = subject.lower().strip()
+
+
+    return SUBJECT_ALIASES.get(subject, subject)
 # =========================
 # MAIN RAG FUNCTION
 # =========================
@@ -203,6 +218,16 @@ def generate_response(user_query, session_id):
     history = get_chat_history(session_id)
     rewritten_query = rewrite_query(user_query, history)
 
+    # Analyze query
+    analysis = analyze_query(rewritten_query)
+
+    intent = analysis.get("intent", "general")
+    subject = analysis.get("subject", "")
+    keywords = analysis.get("keywords", [])
+    
+    print("\n========== QUERY ANALYSIS ==========")
+    print(analysis)
+    
     # Greetings
     if query in ["hi", "hello", "hey"]:
         return "Hello! 👋 Welcome to the College Information Assistant. How can I help you today?"
@@ -217,8 +242,14 @@ def generate_response(user_query, session_id):
     # RETRIEVE DOCUMENTS
     # =========================
 
-    docs = retrieve_similar_chunks(rewritten_query)
-    
+    docs = retrieve_similar_chunks(
+    rewritten_query + " " + subject
+    )
+
+    keyword_docs = keyword_search(
+        " ".join(keywords)
+    )
+    docs.extend(keyword_docs)
     notifications = []
 
     admission_keywords = [
@@ -245,8 +276,10 @@ def generate_response(user_query, session_id):
     # =========================
     # FACULTY SEARCH
     # =========================
-    clean_query = clean_faculty_query(rewritten_query)
-
+    clean_query = subject if subject else clean_faculty_query(rewritten_query)
+    
+    clean_query = normalize_subject(clean_query)
+    
     followup_words = ["where", "when", "time", "timing", "at what time", "room", "classroom"]
 
     # If it's a follow-up but we don't have a subject stored, return fallback immediately
@@ -311,10 +344,10 @@ def generate_response(user_query, session_id):
     if not context_chunks and not faculty_rows:
         return "Sorry, I cannot find relevant information in the college documents."
 
-    # Limit context length (truncate if > 3000 chars)
+    # Limit context length (truncate if > 12000 chars)
     document_context = "\n\n".join(context_chunks)
-    if len(document_context) > 3000:
-        document_context = document_context[:3000] + "\n...[truncated]"
+    if len(document_context) > 12000:
+        document_context = document_context[:12000] + "\n...[truncated]"
 
     context = f"""
     COLLEGE DOCUMENTS:
@@ -338,17 +371,21 @@ def generate_response(user_query, session_id):
     # STRICT PROMPT
     # =========================
     prompt = f"""
-You are a strict college assistant chatbot.
+You are an AI assistant for Government College for Women M.A. Road Srinagar.
 
-RULES:
+Answer using the provided context.
 
-- Answer ONLY from provided context
-- Use admission notifications when relevant
-- Use college documents when relevant
-- Never invent information
-- If information is unavailable say:
+Rules:
+
+- Use information from retrieved documents.
+- Combine information from multiple documents if needed.
+- Answer naturally.
+- If partial information exists, provide the available information.
+- Only say:
 
 Sorry, I cannot find relevant information in the college documents.
+
+when the answer is not present anywhere in the context.
 
 CHAT HISTORY:
 {memory_text}

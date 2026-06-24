@@ -16,8 +16,9 @@ def retrieve_similar_chunks(query: str):
                         document_name,
                         embedding <-> CAST(:query_embedding AS vector) AS distance
                     FROM documents
+                    WHERE content IS NOT NULL
                     ORDER BY embedding <-> CAST(:query_embedding AS vector)
-                    LIMIT 8
+                    LIMIT 20
                 """),
                 {
                     "query_embedding": query_embedding_str
@@ -25,6 +26,15 @@ def retrieve_similar_chunks(query: str):
             )
 
             rows = result.fetchall()
+            rows = [r for r in rows if r.distance < 0.9]
+            print("\n========== RETRIEVED DOCUMENTS ==========\n")
+
+            for row in rows:
+                print("DOCUMENT:", row.document_name)
+                print("DISTANCE:", row.distance)
+                print("CONTENT:")
+                print(row.content[:1000])
+                print("=" * 100)
 
             if not rows:
                 return []
