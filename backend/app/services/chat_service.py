@@ -7,6 +7,7 @@ from app.rag.notification_retriever import search_notifications
 from app.rag.keyword_search import keyword_search
 from app.rag.query_analyzer import analyze_query
 from app.rag.subject_aliases import SUBJECT_ALIASES
+from app.rag.subject_mapper import SUBJECT_ALIASES
 import time
 import re 
 
@@ -155,9 +156,13 @@ Rules:
 # FACULTY SEARCH
 # =========================
 def search_faculty(query: str):
+
     query = query.strip().lower()
 
+    print("SQL SEARCH:", query)
+
     with engine.connect() as conn:
+
         result = conn.execute(
             text("""
                 SELECT
@@ -175,8 +180,12 @@ def search_faculty(query: str):
                 "like_query": f"%{query}%"
             }
         )
-        return result.fetchall()
 
+        rows = result.fetchall()
+
+        print("SQL RESULTS:", rows)
+
+        return rows
 
 def clean_faculty_query(rewritten_query: str) -> str:
     query = rewritten_query.lower()
@@ -194,9 +203,20 @@ def clean_faculty_query(rewritten_query: str) -> str:
     query = " ".join(query.split())        # normalize spaces
     return query.strip()
 
-# =========================
-# SUBJECT NORMALIZER
-# =========================
+SUBJECT_ALIASES = {
+    "artificial intelligence": "ai",
+    "ai": "ai",
+
+    "python": "python",
+    "python programming": "python",
+
+    "java": "java",
+    "java programming": "java",
+
+    "javascript": "javascript",
+    "javascript programming": "javascript"
+}
+
 
 def normalize_subject(subject):
 
@@ -205,11 +225,11 @@ def normalize_subject(subject):
 
     subject = subject.lower().strip()
 
-
     return SUBJECT_ALIASES.get(subject, subject)
 # =========================
 # MAIN RAG FUNCTION
 # =========================
+
 def generate_response(user_query, session_id):
     query = user_query.lower().strip()
     intent = classify_intent(user_query)
@@ -219,14 +239,24 @@ def generate_response(user_query, session_id):
     rewritten_query = rewrite_query(user_query, history)
 
     # Analyze query
-    analysis = analyze_query(rewritten_query)
+    analysis = analyze_query(user_query)
 
-    intent = analysis.get("intent", "general")
-    subject = analysis.get("subject", "")
-    keywords = analysis.get("keywords", [])
-    
     print("\n========== QUERY ANALYSIS ==========")
     print(analysis)
+
+    intent = analysis.get("intent")
+    subject = analysis.get("subject")
+    keywords = analysis.get("keywords", [])
+
+    if subject:
+        clean_query = normalize_subject(subject)
+    else:
+        clean_query = clean_faculty_query(rewritten_query)
+
+    print("\n========== FACULTY SEARCH ==========")
+    print("Search Query:", clean_query)
+
+   
     
     # Greetings
     if query in ["hi", "hello", "hey"]:
@@ -276,10 +306,14 @@ def generate_response(user_query, session_id):
     # =========================
     # FACULTY SEARCH
     # =========================
-    clean_query = subject if subject else clean_faculty_query(rewritten_query)
-    
-    clean_query = normalize_subject(clean_query)
-    
+    print("\n========== FACULTY SEARCH ==========")
+    print("Search Query:", clean_query)
+    subject = analysis.get("subject", "")
+
+    if subject:
+        clean_query = subject
+    else:
+        clean_query = clean_faculty_query(rewritten_query)
     followup_words = ["where", "when", "time", "timing", "at what time", "room", "classroom"]
 
     # If it's a follow-up but we don't have a subject stored, return fallback immediately
@@ -290,7 +324,11 @@ def generate_response(user_query, session_id):
     if any(word in query for word in followup_words) and session_id in last_subject_by_session:
         clean_query = last_subject_by_session[session_id]
 
-    faculty_rows = search_faculty(clean_query) if clean_query else []
+    
+    faculty_rows = []
+
+    if intent == "faculty":
+        faculty_rows = search_faculty(clean_query)
     row = faculty_rows[0] if faculty_rows else None
 
     faculty_context = ""

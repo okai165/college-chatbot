@@ -1,5 +1,6 @@
 from app.services.llm import client
 import json
+import time
 
 
 def analyze_query(query):
@@ -72,34 +73,50 @@ Output:
 }}
 """
 
-    try:
+    for attempt in range(3):
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
+        try:
 
-        text = response.text.strip()
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
 
-        # Remove markdown wrapper if Gemini returns it
-        if text.startswith("```json"):
-            text = text.replace("```json", "")
-            text = text.replace("```", "")
-            text = text.strip()
+            text = response.text.strip()
 
-        result = json.loads(text)
+            # Remove markdown wrapper
+            if text.startswith("```json"):
+                text = text.replace("```json", "")
+                text = text.replace("```", "")
+                text = text.strip()
 
-        print("\n========== QUERY ANALYZER ==========")
-        print(result)
+            # Extract JSON safely
+            start = text.find("{")
+            end = text.rfind("}")
 
-        return result
+            if start != -1 and end != -1:
+                text = text[start:end + 1]
 
-    except Exception as e:
+            result = json.loads(text)
 
-        print("QUERY ANALYZER ERROR:", e)
+            print("\n========== QUERY ANALYZER ==========")
+            print(result)
 
-        return {
-            "intent": "general",
-            "subject": "",
-            "keywords": []
-        }
+            return result
+
+        except Exception as e:
+
+            print(
+                f"QUERY ANALYZER RETRY {attempt + 1}/3 FAILED:",
+                e
+            )
+
+            time.sleep(1)
+
+    print("\n========== QUERY ANALYZER FALLBACK ==========")
+
+    return {
+        "intent": "general",
+        "subject": "",
+        "keywords": []
+    }
