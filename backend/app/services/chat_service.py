@@ -234,11 +234,38 @@ def normalize_subject(subject):
 
 def generate_response(user_query, session_id):
     query = user_query.lower().strip()
+     # Greetings
+    if query in ["hi", "hello", "hey"]:
+        return "Hello! 👋 Welcome to the College Information Assistant. How can I help you today?"
+    if "how are you" in query:
+        return "I'm doing well. How can I assist you today?"
+    if query in ["thanks", "thank you"]:
+        return "You're welcome! 😊"
+    if query in ["bye", "goodbye"]:
+        return "Goodbye! Have a great day."
     intent = classify_intent(user_query)
 
     # Handle follow-up questions
     history = get_chat_history(session_id)
-    rewritten_query = rewrite_query(user_query, history)
+
+    followup_words = [
+        "where",
+        "when",
+        "what time",
+        "room",
+        "there",
+        "it",
+        "he",
+        "she"
+    ]
+
+    if any(word in user_query.lower() for word in followup_words):
+        rewritten_query = rewrite_query(
+            user_query,
+            history
+        )
+    else:
+        rewritten_query = user_query
 
     # Analyze query
     analysis = analyze_query(user_query)
@@ -276,17 +303,7 @@ def generate_response(user_query, session_id):
     print("\n========== FACULTY SEARCH ==========")
     print("Search Query:", clean_query)
 
-   
-    
-    # Greetings
-    if query in ["hi", "hello", "hey"]:
-        return "Hello! 👋 Welcome to the College Information Assistant. How can I help you today?"
-    if query == "how are you":
-        return "I'm doing well. How can I assist you today?"
-    if query in ["thanks", "thank you"]:
-        return "You're welcome! 😊"
-    if query in ["bye", "goodbye"]:
-        return "Goodbye! Have a great day."
+
 
     # =========================
     # RETRIEVE DOCUMENTS
@@ -466,10 +483,21 @@ QUESTION:
             print(response.text)
             return response.text
         except Exception as e:
-            print(f"\n❌ RETRY {attempt + 1}/3")
-            import traceback
-            traceback.print_exc()
-            time.sleep(2)
+            if "RESOURCE_EXHAUSTED" in str(e):
+                print("Gemini quota exhausted")
+                return (
+                    "AI service quota exhausted. "
+                    "Please try again later."
+                )
 
-    return "AI service is temporarily busy. Please try again in a few seconds."
+            print(f"\n❌ RETRY {attempt + 1}/3")
+
+            time.sleep(2)
+    if docs:
+        return docs[0].content[:2000]
+
+    return (
+        "Sorry, I cannot find relevant information "
+        "in the college documents."
+    )
 

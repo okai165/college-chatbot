@@ -1,10 +1,30 @@
 from app.services.llm import client
 import json
 import time
+import re
+
+
+def enrich_with_metadata(result: dict):
+    """
+    Adds semester and exam_type fields to analyzer result.
+    """
+    query_text = (result.get("subject", "") + " " + " ".join(result.get("keywords", []))).lower()
+
+    # Semester detection (e.g., "10 sem", "semester 3rd")
+    sem_match = re.search(r'(?:semester|sem)\s*(\d+)', query_text)
+    if sem_match:
+        result["semester"] = sem_match.group(1)
+
+    # Exam type detection
+    if "internal" in query_text:
+        result["exam_type"] = "internal"
+    elif "external" in query_text or "semester end" in query_text:
+        result["exam_type"] = "external"
+
+    return result
 
 
 def analyze_query(query):
-
     prompt = f"""
 You are a query analysis engine for a college chatbot.
 
@@ -74,9 +94,7 @@ Output:
 """
 
     for attempt in range(3):
-
         try:
-
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt
@@ -99,24 +117,23 @@ Output:
 
             result = json.loads(text)
 
+            # Enrich with semester/exam_type metadata
+            result = enrich_with_metadata(result)
+
             print("\n========== QUERY ANALYZER ==========")
             print(result)
 
             return result
 
         except Exception as e:
-
-            print(
-                f"QUERY ANALYZER RETRY {attempt + 1}/3 FAILED:",
-                e
-            )
-
+            print(f"QUERY ANALYZER RETRY {attempt + 1}/3 FAILED:", e)
             time.sleep(1)
 
     print("\n========== QUERY ANALYZER FALLBACK ==========")
-
     return {
         "intent": "general",
         "subject": "",
-        "keywords": []
+        "keywords": [],
+        "semester": None,
+        "exam_type": None
     }
