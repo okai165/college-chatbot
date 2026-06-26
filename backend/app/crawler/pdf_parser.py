@@ -39,31 +39,38 @@ def extract_text_from_image(image_path):
 
 def parse_notice_metadata(text: str):
     """
-    Extracts semester, exam type, batch, and issued date from notice/admission text.
+    Extracts semester(s), exam type, batch, and issued date from exam/admission notices.
     """
     metadata = {}
-
     lower_text = text.lower()
 
-    # Semester detection (works for "UG 10th Semester", "7th & 8th Semester", etc.)
-    sem_match = re.search(r'(\d+)(?:st|nd|rd|th)\s+Semester', text, re.IGNORECASE)
-    if sem_match:
-        metadata["semester"] = sem_match.group(1)
+    # Semester detection (handles "1st Semester", "2nd Sem", "7th & 8th Semester", "Semester 10")
+    sem_matches = re.findall(r'(\d+)(?:st|nd|rd|th)?\s*(?:Semester|Sem)', text, re.IGNORECASE)
+    if sem_matches:
+        # Store all semesters mentioned as a comma-separated string
+        metadata["semester"] = ",".join(sorted(set(sem_matches), key=int))
 
     # Exam/admission type detection
     if "internal" in lower_text:
         metadata["exam_type"] = "internal"
     elif "external" in lower_text or "semester end" in lower_text:
         metadata["exam_type"] = "external"
-    elif "admission" in lower_text or "selection list" in lower_text:
+    elif "admission" in lower_text or "selection list" in lower_text or "counselling" in lower_text:
         metadata["exam_type"] = "admission"
+    elif "timetable" in lower_text or "time table" in lower_text:
+        metadata["exam_type"] = "timetable"
+    else:
+        metadata["exam_type"] = None
 
-    # Batch detection
-    batch_match = re.search(r'Batch\s+(\d{4})', text)
+    # Batch detection (handles "Batch 2022", "Batch of 2022", "Batch 2023-24")
+    batch_match = re.search(r'Batch\s*(\d{4})(?:[-/](\d{2,4}))?', text, re.IGNORECASE)
     if batch_match:
-        metadata["batch"] = batch_match.group(1)
+        if batch_match.group(2):
+            metadata["batch"] = f"{batch_match.group(1)}-{batch_match.group(2)}"
+        else:
+            metadata["batch"] = batch_match.group(1)
 
-    # Issued date detection (supports "Dated: 25-06-2026" or plain date)
+    # Issued date detection (supports "Dated: 25-06-2026" or plain DD-MM-YYYY)
     date_match = re.search(r'(\d{2}-\d{2}-\d{4})', text)
     if date_match:
         metadata["issued_date"] = datetime.strptime(
@@ -71,7 +78,6 @@ def parse_notice_metadata(text: str):
         ).date().isoformat()
 
     return metadata
-
 
 def extract_text_with_metadata(pdf_path):
     """
