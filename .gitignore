@@ -1,8 +1,21 @@
-venv/
-.venv/
-node_modules/
+# Python
 __pycache__/
-dist/
-build/
-*.log
+*.pyc
+#log files
+backend/crawl_log.txt
+backend/visited.pkl
+backend/app/crawler/downloads/
+# Virtual environment
+venv/
+
+# Environment variables
 .env
+
+# Node modules (if frontend uses npm)
+node_modules/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
