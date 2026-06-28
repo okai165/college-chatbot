@@ -128,3 +128,15 @@ CREATE TABLE events (
     details TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
+ALTER TABLE documents
+ADD COLUMN semester VARCHAR(50);
+
+ALTER TABLE documents
+ADD COLUMN exam_type VARCHAR(50);
+
+-- Optional extras if you want more metadata
+ALTER TABLE documents
+ADD COLUMN batch VARCHAR(50);
+
+ALTER TABLE documents
+ADD COLUMN issued_date DATE;
