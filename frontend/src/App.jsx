@@ -168,22 +168,15 @@ function ChatWidget() {
     }, 300);
   };
   useEffect(() => {
+    localStorage.removeItem("recentChats");
+    localStorage.removeItem("allChats");
+    setMessages([]);          // reset messages
+  }, []); // run once on component mount
 
-    localStorage.setItem(
-      "recentChats",
-      JSON.stringify(recentChats)
-    );
 
-  }, [recentChats]);
+  
 
-  useEffect(() => {
-
-    localStorage.setItem(
-      "allChats",
-      JSON.stringify(allChats)
-    );
-
-  }, [allChats]);
+ 
 
   // =========================
   // AUTO SCROLL
@@ -607,7 +600,8 @@ function ChatWidget() {
       onChatOpen={() => setOpen(true)}
     />
 
-    {cardCategories.map((category) => (
+    {
+    cardCategories.map((category) => (
       <FeatureSection
         key={category.title}
         title={category.title}
@@ -922,41 +916,43 @@ function ChatWidget() {
             )}
 
             {/* LOADING */}
-
-            {loading && (
-
-              <div
-                style={{
-                  marginBottom:
-                    "20px"
-                }}
-              >
-
-                <div
-                  style={{
-                    width:
-                      "40px",
-
-                    height:
-                      "40px",
-
-                    border:
-                      "4px solid #cbd5e1",
-
-                    borderTop:
-                      "4px solid #2563eb",
-
-                    borderRadius:
-                      "50%",
-
-                    animation:
-                      "spin 1s linear infinite"
-                  }}
-                />
-
+              {loading && (
+              <div style={{ marginBottom: "20px" }}>
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <span
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      backgroundColor: colors.text,
+                      borderRadius: "50%",
+                      animation: "bounce 1.2s infinite"
+                    }}
+                  ></span>
+                  <span
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      backgroundColor: colors.text,
+                      borderRadius: "50%",
+                      animation: "bounce 1.2s infinite",
+                      animationDelay: "0.2s"
+                    }}
+                  ></span>
+                  <span
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      backgroundColor: colors.text,
+                      borderRadius: "50%",
+                      animation: "bounce 1.2s infinite",
+                      animationDelay: "0.4s"
+                    }}
+                  ></span>
+                </div>
               </div>
-
             )}
+
+
 
             <div
               ref={

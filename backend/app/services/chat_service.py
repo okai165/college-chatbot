@@ -8,6 +8,7 @@ from app.rag.keyword_search import keyword_search
 from app.rag.query_analyzer import analyze_query
 from app.rag.subject_aliases import SUBJECT_ALIASES
 from app.rag.subject_mapper import SUBJECT_ALIASES
+from app.crawler.doc_type_mapper import map_doc_type
 import time
 import re 
 
@@ -120,8 +121,27 @@ def classify_intent(query: str) -> str:
     
     if any(x in query for x in ["where", "when", "time", "room"]):
         return "schedule"
-    
-    return "general"  
+
+    if "examination cell" in query or "exam cell" in query or "controller of examinations" in query:
+        return "examination"   # must match crawler doc_type
+    if "grievance" in query or "complaint" in query or "internal complaints committee" in query:
+        return "grievance"     # must match crawler doc_type
+    if "library" in query:
+        return "library"
+    if "hostel" in query:
+        return "hostel"
+    if "iqac" in query:
+        return "iqac"
+    if "nirf" in query:
+        return "nirf"
+    if "ncc" in query:
+        return "ncc"
+    if "entrepreneurship" in query:
+        return "entrepreneurship"
+    if "innovation" in query or "incubation" in query:
+        return "innovation"
+
+    return "general"
 def handle_policy_query(query, docs):
     context = "\n".join([d.content for d in docs if d.content])
 
@@ -205,19 +225,21 @@ def clean_faculty_query(rewritten_query: str) -> str:
     query = " ".join(query.split())        # normalize spaces
     return query.strip()
 
-SUBJECT_ALIASES = {
-    "artificial intelligence": "ai",
-    "ai": "ai",
+SUBJECT_ALIASES.update({
+    "examination cell": "examination",
+    "exam cell": "examination",
+    "controller of examinations": "examination",
+    "grievance cell": "grievance",
+    "internal complaints committee": "grievance",
+    "library": "library",
+    "hostel": "hostel",
+    "iqac": "iqac",
+    "nirf": "nirf",
+    "ncc": "ncc",
+    "entrepreneurship cell": "entrepreneurship",
+    "innovation centre": "innovation",
+})
 
-    "python": "python",
-    "python programming": "python",
-
-    "java": "java",
-    "java programming": "java",
-
-    "javascript": "javascript",
-    "javascript programming": "javascript"
-}
 
 
 def normalize_subject(subject):
@@ -234,15 +256,47 @@ def normalize_subject(subject):
 
 def generate_response(user_query, session_id):
     query = user_query.lower().strip()
+    
      # Greetings
-    if query in ["hi", "hello", "hey"]:
-        return "Hello! 👋 Welcome to the College Information Assistant. How can I help you today?"
-    if "how are you" in query:
-        return "I'm doing well. How can I assist you today?"
-    if query in ["thanks", "thank you"]:
+    query = user_query.lower().strip()
+    notifications = []
+    
+
+    # Casual / small talk responses
+    if query in ["hi", "hello", "hey", "hii", "yo", "sup"]:
+        return "Hello! 👋 How can I help you today?"
+
+    if query in ["how are you", "how r u", "how's it going", "what's up"]:
+        return "I'm doing well, thanks for asking! How can I assist you?"
+
+    if query in ["thanks", "thank you", "thx", "ty", "much appreciated"]:
         return "You're welcome! 😊"
-    if query in ["bye", "goodbye"]:
+
+    if query in ["bye", "goodbye", "see ya", "cya", "later", "take care"]:
         return "Goodbye! Have a great day."
+
+    if query in ["ok", "okay", "k", "alright", "cool", "fine", "sounds good"]:
+        return "Alright 👍"
+
+    if query in ["yes", "yep", "yeah", "sure", "of course", "absolutely", "definitely"]:
+        return "Okay, noted."
+
+    if query in ["no", "nope", "nah", "not really", "never"]:
+        return "Alright, no problem."
+
+    if query in ["good morning", "morning", "gm"]:
+        return "Good morning! 🌞 Hope you have a great day."
+
+    if query in ["good night", "night", "gn", "sweet dreams"]:
+        return "Good night! 🌙 Rest well."
+
+    if query in ["welcome", "you're welcome"]:
+        return "Happy to help!"
+
+    if query in ["sorry", "apologies", "my bad"]:
+        return "No worries at all."
+
+
     intent = classify_intent(user_query)
 
     # Handle follow-up questions
@@ -269,7 +323,12 @@ def generate_response(user_query, session_id):
 
     # Analyze query
     analysis = analyze_query(user_query)
-    
+    docs = retrieve_similar_chunks(
+        rewritten_query + " " + analysis.get("subject", ""),
+        semester=analysis.get("semester"),
+        exam_type=analysis.get("exam_type"),
+        doc_type=analysis.get("intent")
+    )
     if analysis["intent"] == "general":
 
         lower_query = user_query.lower()
@@ -309,15 +368,15 @@ def generate_response(user_query, session_id):
     # RETRIEVE DOCUMENTS
     # =========================
 
-    docs = retrieve_similar_chunks(
-    rewritten_query + " " + subject
-    )
+    #docs = retrieve_similar_chunks(
+    #rewritten_query + " " + subject
+    #)
 
-    keyword_docs = keyword_search(
-        " ".join(keywords)
-    )
-    docs.extend(keyword_docs)
-    notifications = []
+    #keyword_docs = keyword_search(
+        #" ".join(keywords)
+    #)
+    #docs.extend(keyword_docs)
+    #notifications = []
 
     admission_keywords = [
         "admission",

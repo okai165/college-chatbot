@@ -412,3 +412,11 @@ body {
   right: 0;
   border-right-color: var(--border);
 }
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}

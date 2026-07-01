@@ -7,6 +7,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.db.database import engine
 from app.rag.embedder import generate_embedding
+from app.rag.pdf_parser import parse_notice_metadata  # <-- import your metadata parser
 
 
 # =========================
@@ -29,15 +30,11 @@ splitter = RecursiveCharacterTextSplitter(
 # EXTRACT TEXT FROM PDF
 # =========================
 def extract_text_from_pdf(pdf_path):
-
     reader = PdfReader(pdf_path)
-
     text_data = ""
 
     for page in reader.pages:
-
         page_text = page.extract_text()
-
         if page_text:
             text_data += page_text + "\n"
 
@@ -48,16 +45,12 @@ def extract_text_from_pdf(pdf_path):
 # CHUNK TEXT
 # =========================
 def chunk_text(text):
-
     chunks = splitter.split_text(text)
 
     # remove tiny/noisy chunks
     cleaned_chunks = []
-
     for chunk in chunks:
-
         chunk = chunk.strip()
-
         if len(chunk) > 50:
             cleaned_chunks.append(chunk)
 
@@ -78,35 +71,41 @@ def process_pdf(pdf_path):
         return
 
     print("✂ Chunking text...")
-
     chunks = chunk_text(text_data)
-
     print(f"🔢 Total chunks: {len(chunks)}")
 
+    # Extract metadata once from the full text
+    metadata = parse_notice_metadata(text_data)
+
     with engine.begin() as conn:
-
         for i, chunk in enumerate(chunks):
-
             print(f"➡ Processing chunk {i+1}/{len(chunks)}")
 
             embedding = generate_embedding(chunk)
-
             embedding_str = "[" + ",".join(map(str, embedding)) + "]"
 
             conn.execute(
                 text("""
                     INSERT INTO documents 
-                     (document_name,content, embedding)
+                    (document_name, content, embedding, semester, exam_type, batch, issued_date)
                     VALUES (
                         :document_name,
                         :content,
-                        CAST(:embedding AS vector)
+                        CAST(:embedding AS vector),
+                        :semester,
+                        :exam_type,
+                        :batch,
+                        :issued_date
                     )
                 """),
                 {
                     "document_name": pdf_name,
                     "content": chunk,
-                    "embedding": embedding_str
+                    "embedding": embedding_str,
+                    "semester": metadata.get("semester"),
+                    "exam_type": metadata.get("exam_type"),
+                    "batch": metadata.get("batch"),
+                    "issued_date": metadata.get("issued_date")
                 }
             )
     print("Saving document:", pdf_name)
@@ -117,43 +116,29 @@ def process_pdf(pdf_path):
 # RUN FROM COMMAND LINE
 # =========================
 if __name__ == "__main__":
-
     if len(sys.argv) < 2:
         print("❌ Provide file or folder path")
         sys.exit(1)
 
     path = Path(sys.argv[1])
 
-    # =========================
     # SINGLE PDF
-    # =========================
     if path.is_file() and path.suffix.lower() == ".pdf":
-
         process_pdf(str(path))
 
-    # =========================
     # FOLDER OF PDFs
-    # =========================
     elif path.is_dir():
-
         pdf_files = list(path.rglob("*.pdf"))
-
         if not pdf_files:
             print("❌ No PDF files found")
             sys.exit(1)
 
         print(f"📁 Found {len(pdf_files)} PDFs")
-
         for pdf in pdf_files:
-
             try:
-
                 print(f"\n📄 Ingesting: {pdf.name}")
-
                 process_pdf(str(pdf))
-
             except Exception as e:
-
                 print(f"❌ Failed {pdf.name}: {e}")
 
         print("\n🎉 All PDFs ingested successfully!")

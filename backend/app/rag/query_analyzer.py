@@ -48,6 +48,15 @@ Allowed intents:
 - department
 - course
 - policy
+- grievance
+- examination
+- library
+- hostel
+- iqac
+- nirf
+- ncc
+- entrepreneurship
+- innovation
 - general
 
 Question:
