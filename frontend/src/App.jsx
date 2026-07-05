@@ -19,7 +19,7 @@ import UploadDocuments from "./pages/UploadDocuments";
 // import HeroSection from "./components/HeroSection";
 import FeatureSection from "./components/FeatureSection";
 import { cardCategories } from "./data/cards";
-import Admissions from "./pages/Admissions";
+// import Admissions from "./pages/Admissions";
 import AdmissionsPage from "./pages/AdmissionsPage";
 import { useNavigate } from "react-router-dom";
 import AdmissionUpdatesPage from "./pages/AdmissionUpdatesPage";
@@ -38,7 +38,11 @@ function ChatWidget() {
   // STATES
   // =========================
 
-  const [open, setOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // const [chatOpen, setChatOpen] = useState(false);
+
+  const [selectedCard, setSelectedCard] = useState(null);
 
   // const [sidebarOpen, setSidebarOpen] =
   //   useState(window.innerWidth > 768);
@@ -47,10 +51,10 @@ function ChatWidget() {
     useState(false);
 
   const [input, setInput] = useState("");
-  const [chatVisible, setChatVisible] = useState(true);
+  const [chatVisible, setChatVisible] = useState(false);
   const [messages, setMessages] =
     useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] =
     useState(false);
 
@@ -100,8 +104,6 @@ function ChatWidget() {
   // SAVE TO LOCAL STORAGE
   // =========================
   const cardQuestions = {
-    Admissions: "Tell me about admissions.",
-    Courses: "Tell me about available courses.",
     Scholarships: "Tell me about scholarships.",
     Examinations: "Tell me about examinations.",
     Notices: "Show latest notices.",
@@ -113,70 +115,88 @@ function ChatWidget() {
     "Campus Facilities": "Show campus facilities.",
     "Events & Workshops": "Show recent events and workshops.",
     FAQ: "Show frequently asked questions.",
-    "Contact Us": "Show college contact information."
+    "Contact Us": "Show college contact information.",
+    "Multilingual Support": "Can you answer questions in different languages?",
+    "Smart Search": "Help me search college information.",
+    "AI Recommendations": "Recommend useful information for a new student."
   };
   const navigate = useNavigate();
-  const handleCardClick = (cardTitle) => {
+  const [pendingQuestion, setPendingQuestion] = useState(null);
+  const handleCardClick = (title) => {
+    console.log("Clicked:", title);
+    switch (title) {
+    
+      // =========================
+      // OPEN PAGES
+      // =========================
 
-    if (cardTitle === "Admissions") {
-      navigate("/admissions");
-      return;
+      case "Admission Updates":
+        navigate("/admission-updates");
+        return;
+
+      case "Activity Schedule":
+        navigate("/activity-schedule");
+        return;
+
+      case "Eligibility Criteria":
+        navigate("/eligibility");
+        return;
+
+      case "Fee Structure":
+        navigate("/fee-structure");
+        return;
+
+      case "Document Checklist":
+        navigate("/document-checklist");
+        return;
+
+      case "Available Courses":
+        navigate("/available-courses");
+        return;
+
+      case "Admission Committee":
+        navigate("/admission-committee");
+        return;
+
+      // =========================
+      // SPECIAL CARDS
+      // =========================
+
+      case "Chat History":
+        // navigate("/chat-history");
+        alert("Chat History page coming soon.");
+        return;
+
+      case "Saved Answers":
+        // navigate("/saved-answers");
+        alert("Saved Answers page coming soon.");
+        return;
+
+      case "Voice Assistant":
+        setChatVisible(true);
+        // startVoiceInput();
+        return;
+
+      // =========================
+      // DEFAULT → CHATBOT
+      // =========================
+
+      default:
+        setChatVisible(true);
+        setPendingQuestion(cardQuestions[title] || `Tell me about ${title}`);
     }
-
-    if (cardTitle === "Admission Updates") {
-      navigate("/admission-updates");
-      return;
-    }
-
-    if (cardTitle === "Activity Schedule") {
-      navigate("/activity-schedule");
-      return;
-    }
-
-    if (cardTitle === "Eligibility Criteria") {
-      navigate("/eligibility");
-      return;
-    }
-
-    if (cardTitle === "Fee Structure") {
-      navigate("/fee-structure");
-      return;
-    }
-
-    if (cardTitle === "Document Checklist") {
-      navigate("/document-checklist");
-      return;
-    }
-
-    if (cardTitle === "Available Courses") {
-      navigate("/available-courses");
-      return;
-    }
-
-    if (cardTitle === "Admission Committee") {
-      navigate("/admission-committee");
-      return;
-    }
-
-    setOpen(true);
-
-    setTimeout(() => {
-      sendMessage(
-        cardQuestions[cardTitle] ||
-        `Tell me about ${cardTitle}`
-      );
-    }, 300);
   };
   useEffect(() => {
-    localStorage.removeItem("recentChats");
-    localStorage.removeItem("allChats");
-    setMessages([]);          // reset messages
-  }, []); // run once on component mount
-
-
-  
-
- 
+    if (chatVisible && pendingQuestion) {
+        sendMessage(pendingQuestion);
+        setPendingQuestion(null);
+    }
+}, [chatVisible, pendingQuestion]);
+  // useEffect(() => {
+  //   localStorage.removeItem("recentChats");
+  //   localStorage.removeItem("allChats");
+  //   setMessages([]);          // reset messages
+  // }, []); // run once on component mount
 
   // =========================
   // AUTO SCROLL
@@ -581,13 +601,15 @@ function ChatWidget() {
         bg: "#0f172a",
         panel: "#1e293b",
         text: "white",
-        body: "#111827"
+        body: "#111827",
+        border: "#334155"
       }
     : {
         bg: "white",
         panel: "#f8fafc",
         text: "#0f172a",
-        body: "#f1f5f9"
+        body: "#f1f5f9",
+        border: "#cbd5e1"
       };
 
   return (
@@ -620,25 +642,41 @@ function ChatWidget() {
         </aside>
 
     ) : (
-
         <div className="collapsed-sidebar">
 
-            <button onClick={() => setSidebarOpen(true)}>
-                click here for more options ☰
-            </button>
+          <button
+              className="expand-sidebar-btn"
+              onClick={() => setSidebarOpen(true)}
+          >
+              ☰ Click here for more options
+          </button>
 
-        </div>
+          <div className="sidebar-preview">
 
+              <h3>Explore AI Assistant</h3>
+
+              {/* <ul>
+                  <li>Admission Updates</li>
+                  <li>Courses</li>
+                  <li>Scholarships</li>
+                  <li>Examinations</li>
+                  <li>Documents</li>
+                  <li>Events</li>
+                  <li>FAQ</li>
+              </ul> */}
+
+              <p>
+                  Open the sidebar to access all student services and AI features.
+                  like Admission Updates,Courses,Scholarships,Examinations,Documents,Events,FAQ and more.
+              </p>
+
+          </div>
+       </div>
     )}
     {chatVisible && (
       <div
        className="chat-container"
       >
-
-        
-
-      
-
         {/* MAIN AREA */}
 
         <div
@@ -1050,8 +1088,25 @@ function ChatWidget() {
         </div>
 
       </div>
-      )}
+      
+    )}
+    {!chatVisible && (
+       <button
+        className="chat-fab"
+        onClick={() => setChatVisible(true)}
+      >
+        <div className="chat-icon">
+          <span>G</span>
+          <span>C</span>
+          <span>W</span>
+        </div>
 
+        <div className="chat-content">
+          <span className="chat-title">AI Assistant</span>
+          <span className="chat-subtitle">Click here to chat</span>
+        </div>
+      </button>
+    )}
     {/* SPINNER STYLE */}
 
     <style>
