@@ -1,25 +1,16 @@
 from bs4 import BeautifulSoup
 
+def extract_content(html):
+    soup = BeautifulSoup(html, "html.parser")
 
-def extract_headings(html):
+    # Remove scripts, styles, noscript
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
 
-    soup = BeautifulSoup(
-        html,
-        "html.parser"
-    )
+    # Get all text in one go
+    text = soup.get_text(separator="\n", strip=True)
 
-    data = []
-
-    for heading in soup.find_all(
-        ["h1", "h2", "h3", "h4"]
-    ):
-
-        text = heading.get_text(
-            strip=True
-        )
-
-        if len(text) > 3:
-
-            data.append(text)
+    # Filter out junk lines
+    data = [line for line in text.splitlines() if len(line.strip()) > 3]
 
     return data

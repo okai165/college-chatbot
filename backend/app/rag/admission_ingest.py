@@ -1,9 +1,12 @@
 from sqlalchemy import text
 from app.db.database import engine
 from app.rag.embedder import generate_embedding
-from app.crawler.pdf_parser import parse_notice_metadata  # still used for admissions
+from app.crawler.pdf_parser import parse_notice_metadata
 
 
+# ==========================
+# CHECK IF DOCUMENT EXISTS
+# ==========================
 def document_exists(source_url):
     with engine.connect() as conn:
         result = conn.execute(
@@ -18,84 +21,140 @@ def document_exists(source_url):
         return result.fetchone() is not None
 
 
+# ==========================
+# SIMPLE WORD CHUNKER
+# ==========================
+def chunk_text(text, chunk_size=400, overlap=80):
+    """
+    Split text into overlapping chunks.
+
+    chunk_size = number of words
+    overlap = repeated words between chunks
+    """
+
+    words = text.split()
+
+    if len(words) <= chunk_size:
+        return [text]
+
+    chunks = []
+    start = 0
+
+    while start < len(words):
+        end = start + chunk_size
+
+        chunks.append(" ".join(words[start:end]))
+
+        if end >= len(words):
+            break
+
+        start = end - overlap
+
+    return chunks
+
+
+# ==========================
+# SAVE DOCUMENT
+# ==========================
 def save_document(
     title,
     date,
     source_url,
     content,
-    doc_type="notice"   # default type is 'notice' for HTML pages
+    doc_type="notice"
 ):
     try:
-        print("\n========== SAVE_DOCUMENT ==========")
-        print("TITLE:", title)
-        print("DOC_TYPE:", doc_type)
-        print("SOURCE_URL:", source_url)
 
-        full_text = f"""
+        print("\n========== SAVE DOCUMENT ==========")
+        print("TITLE:", title)
+        print("DOC TYPE:", doc_type)
+        print("SOURCE:", source_url)
+
+        metadata = {}
+
+        if doc_type == "admission":
+            metadata = parse_notice_metadata(content)
+
+        chunks = chunk_text(content)
+
+        print(f"Created {len(chunks)} chunks")
+
+        source_type = (
+            "pdf"
+            if source_url.lower().endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx"))
+            else "html"
+        )
+
+        with engine.begin() as conn:
+
+            for i, chunk in enumerate(chunks, start=1):
+
+                full_text = f"""
 TITLE:
 {title}
-
-DATE:
-{date}
 
 SOURCE:
 {source_url}
 
+CHUNK:
+{i}/{len(chunks)}
+
 CONTENT:
-{content}
+{chunk}
 """
 
-        print("Generating embedding...")
-        embedding = generate_embedding(full_text)
-        embedding_str = "[" + ",".join(map(str, embedding)) + "]"
+                print(f"Embedding chunk {i}/{len(chunks)}")
 
-        # Extract metadata only for admissions/exams
-        metadata = {}
-        if doc_type == "admission":
-            metadata = parse_notice_metadata(full_text)
+                embedding = generate_embedding(full_text)
+                embedding_str = "[" + ",".join(map(str, embedding)) + "]"
 
-        with engine.begin() as conn:
-            conn.execute(
-                text("""
-                    INSERT INTO documents
-                    (
-                        content,
-                        doc_type,
-                        embedding,
-                        document_name,
-                        source_url,
-                        semester,
-                        exam_type,
-                        batch,
-                        issued_date
-                    )
-                    VALUES
-                    (
-                        :content,
-                        :doc_type,
-                        CAST(:embedding AS vector),
-                        :document_name,
-                        :source_url,
-                        :semester,
-                        :exam_type,
-                        :batch,
-                        :issued_date
-                    )
-                """),
-                {
-                    "content": full_text,
-                    "doc_type": doc_type,
-                    "embedding": embedding_str,
-                    "document_name": title,
-                    "source_url": source_url,
-                    "semester": metadata.get("semester"),
-                    "exam_type": metadata.get("exam_type"),
-                    "batch": metadata.get("batch"),
-                    "issued_date": metadata.get("issued_date") or date
-                }
-            )
+                conn.execute(
+                    text("""
+                        INSERT INTO documents
+                        (
+                            content,
+                            embedding,
+                            source_url,
+                            source_title,
+                            source_type,
+                            document_name,
+                            doc_type,
+                            semester,
+                            exam_type,
+                            batch,
+                            issued_date
+                        )
+                        VALUES
+                        (
+                            :content,
+                            CAST(:embedding AS vector),
+                            :source_url,
+                            :source_title,
+                            :source_type,
+                            :document_name,
+                            :doc_type,
+                            :semester,
+                            :exam_type,
+                            :batch,
+                            :issued_date
+                        )
+                    """),
+                    {
+                        "content": full_text,
+                        "embedding": embedding_str,
+                        "source_url": source_url,
+                        "source_title": title,
+                        "source_type": source_type,
+                        "document_name": title,
+                        "doc_type": doc_type,
+                        "semester": metadata.get("semester"),
+                        "exam_type": metadata.get("exam_type"),
+                        "batch": metadata.get("batch"),
+                        "issued_date": metadata.get("issued_date") or date,
+                    }
+                )
 
-        print(f"Saved {doc_type} Doc: {title}")
+        print(f"Successfully saved {len(chunks)} chunks for '{title}'")
 
     except Exception as e:
         print("DOCUMENT SAVE ERROR:", e)

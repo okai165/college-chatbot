@@ -4,63 +4,70 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
-import pickle
 import re
 
-# === Imports from your existing pipeline ===
+# ======================
+# PIPELINE IMPORTS
+# ======================
 from app.crawler.pdf_downloader import download_pdf
-from app.crawler.gemini_extractor import extract_notification_data
-from app.crawler.classifier import classify_notice
 from app.db.admission_service import save_admission
 from app.db.notice_service import save_notice
 from app.db.fee_service import save_fee_structure
 from app.crawler.pdf_parser import extract_text_from_pdf, extract_text_from_image
 from app.db.scholarship_service import save_scholarship
 from app.db.notification_service import save_notification, notification_exists
-# ✅ Updated imports from admission_ingest
 from app.rag.admission_ingest import save_document, document_exists
 from app.crawler.doc_type_mapper import map_doc_type
+from app.crawler.intelligence.title_ranker import extract_best_title
+from app.crawler.intelligence.content_extractor import extract_main_content, is_real_page
+from app.crawler.intelligence.document_router import route_document
+from app.crawler.intelligence.fetcher import fetch_html
+from app.crawler.intelligence.llm_cleaner import clean_text_llm
+from app.crawler.title_extractor import extract_document_title
+from app.crawler.gemini_extractor import extract_notification_data
 
+# ✅ NEW: Persistent state store
+from app.crawler.state_store import init_db, is_visited, mark_visited
+
+# ======================
+# CONFIG
+# ======================
 BASE_URL = "https://www.gcwmaroad.edu.in/"
-OUTPUT_DIR = "downloads"
 LOG_FILE = "crawl_log.txt"
-VISITED_FILE = "visited.pkl"
-
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 headers = {"User-Agent": "Mozilla/5.0"}
-visited = set()
-downloaded_files = []
 
-def log_message(message):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    entry = f"[{timestamp}] {message}"
+os.makedirs("downloads", exist_ok=True)
+
+
+# ======================
+# LOGGING
+# ======================
+def log_message(msg):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{ts}] {msg}"
+    print(entry)
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(entry + "\n")
-    print(entry)
 
-def save_state():
-    with open(VISITED_FILE, "wb") as f:
-        pickle.dump(visited, f)
 
-def load_state():
-    global visited
-    if os.path.exists(VISITED_FILE):
-        with open(VISITED_FILE, "rb") as f:
-            visited = pickle.load(f)
-        log_message(f"Resuming crawl. Already visited {len(visited)} pages.")
-
-def download_pdf_with_retry(url, retries=3, delay=5):
-    for attempt in range(retries):
+# ======================
+# DOWNLOAD
+# ======================
+def download_pdf_with_retry(url, retries=3):
+    for i in range(retries):
         try:
             return download_pdf(url)
-        except requests.exceptions.RequestException as e:
-            log_message(f"Download attempt {attempt+1} failed: {e}")
-            time.sleep(delay)
-    raise Exception("All download attempts failed")
+        except Exception as e:
+            log_message(f"Retry {i+1} failed: {e}")
+            time.sleep(3)
+    raise Exception("Download failed")
 
-def process_pdf(title, pdf_url, date=None):
-    """Feed discovered PDF into your admissions pipeline."""
+
+# ======================
+# PDF PROCESSING
+# ======================
+def process_pdf(title, pdf_url, date=None, parent_url=None):
     try:
         if document_exists(pdf_url):
             log_message("Already in RAG. Skipping.")
@@ -74,17 +81,100 @@ def process_pdf(title, pdf_url, date=None):
             text = extract_text_from_pdf(file_path)
 
         if not text.strip():
-            log_message("No text extracted")
             return False
 
-        log_message(f"Extracted {len(text)} characters from {os.path.basename(file_path)}")
-        preview = re.sub(r'[^\x20-\x7E\n\r\t]', '', text)
-        log_message(f"Preview: {preview[:200]}...")
+        filename = os.path.basename(urlparse(pdf_url).path)
+        original_title = title
 
-        # ✅ Save into unified documents table
-        save_document(title=title, date=date, source_url=pdf_url, content=text, doc_type="admission")
+        # ======================
+        # TITLE PIPELINE
+        # ======================
+        # ======================
+        # TITLE PIPELINE (FIXED)
+        # ======================
 
-        category = classify_notice(title, text)
+        base_title = original_title or filename
+
+        def is_safe_llm_title(t):
+            if not t:
+                return False
+            t = t.lower()
+
+            # reject entity-style outputs
+            if t.startswith("institute name"):
+                return False
+
+            # reject overly generic or noisy outputs
+            if len(t) > 120:
+                return False
+
+            # avoid wrong semantic overwrites for reports
+            if "govt" in t and "nirf" not in t:
+                return False
+
+            return True
+
+
+        llm_title = extract_document_title(
+            text=text,
+            fallback_title=base_title,
+            filename=filename
+        )
+
+        # Step 1: decide candidate title
+        if is_safe_llm_title(llm_title):
+            title_candidate = llm_title
+        else:
+            title_candidate = base_title
+
+
+        # Step 2: ranker only refines (NOT overwrite blindly)
+        ranked_title = extract_best_title(text, title_candidate)
+
+        if ranked_title and len(ranked_title.strip()) > 8:
+            if len(ranked_title) <= len(title_candidate) * 1.5:
+                title = ranked_title
+            else:
+                title = title_candidate
+        else:
+            title = title_candidate
+
+        # cleanup
+        title = re.sub(r"\s+", " ", title).strip(" -:|")
+        print("=" * 60)
+        print("Filename :", filename)
+        print("Fallback :", original_title)
+        print("LLM Title:", llm_title)
+        print("Final    :", title)
+        print("=" * 60)
+
+        log_message(f"Extracted {len(text)} chars from {filename}")
+
+        # ======================
+        # SAFE LLM CLEANING
+        # ======================
+        try:
+            lower_text = text.lower()
+            if "<html" in lower_text and ("gateway" in lower_text or "timeout" in lower_text):
+                log_message("Skipping LLM cleaner (bad HTML error response)")
+            else:
+                cleaned = clean_text_llm(text)
+                if cleaned and isinstance(cleaned, str) and len(cleaned.strip()) > 200:
+                    text = cleaned
+        except Exception as e:
+            log_message(f"LLM cleaning skipped: {e}")
+
+        doc_type = map_doc_type(pdf_url, title)
+
+        save_document(
+            title=title,
+            date=date,
+            source_url=pdf_url,
+            content=text,
+            doc_type=doc_type
+        )
+
+        category = route_document(title, text)
         log_message(f"CATEGORY: {category}")
 
         if category == "admission":
@@ -102,144 +192,203 @@ def process_pdf(title, pdf_url, date=None):
                 if data.get("title"):
                     data["source_url"] = pdf_url
                     save_notification(data)
-                    log_message("Notification Saved")
-            except Exception as gemini_error:
-                log_message(f"Gemini skipped: {gemini_error}")
+                    log_message("Notification saved")
+            except Exception as e:
+                log_message(f"Notification skipped: {e}")
 
         return True
+
     except Exception as e:
-        log_message(f"Error processing PDF {pdf_url}: {e}")
+        log_message(f"PDF error {pdf_url}: {e}")
         return False
 
 
+# ======================
+# HTML PROCESSING
+# ======================
 def process_html(title, url, soup):
-    """Extract text from HTML pages and save into RAG with correct doc_type."""
     try:
-        text_chunks = []
-        for h in soup.find_all(["h1", "h2", "h3"]):
-            text_chunks.append(h.get_text(strip=True))
-        for p in soup.find_all("p"):
-            text_chunks.append(p.get_text(strip=True))
-        for table in soup.find_all("table"):
-            text_chunks.append(table.get_text(separator="\n", strip=True))
-
-        content = "\n".join(text_chunks)
-
-        if not content.strip():
-            log_message("No text extracted from HTML")
+        if not is_real_page(soup):
+            log_message("Detected empty shell page → skipping HTML ingestion")
             return False
 
-        log_message(f"Extracted {len(content)} characters from {url}")
-        preview = re.sub(r'[^\x20-\x7E\n\r\t]', '', content)
-        log_message(f"Preview: {preview[:200]}...")
+        html = str(soup)
+        content = extract_main_content(html)
 
-        # ✅ Use mapper to determine doc_type
+        if not content.strip():
+            content = "\n".join(
+                [h.get_text(strip=True) for h in soup.find_all(["h1", "h2", "h3"])] +
+                [p.get_text(strip=True) for p in soup.find_all("p")]
+            )
+
+        content = re.sub(r"\s+", " ", content).strip()
+
+        if len(content) < 150:
+            log_message("HTML content too small → skipping")
+            return False
+
+        # ---------- Better title extraction ----------
+        if not title or len(title.strip()) < 3:
+            if soup.title and soup.title.string:
+                title = soup.title.string.strip()
+
+        title = re.sub(r"\s+", " ", title).strip()
+
+        BAD_TITLES = {
+            "",
+            "home",
+            "index",
+            "index.php",
+            "default",
+            "welcome",
+            "module.php",
+            "government college for women",
+            "gcw",
+        }
+
+        clean_title = re.sub(r"\s+", " ", title).strip().lower()
+
+        if (
+            not clean_title
+            or clean_title in BAD_TITLES
+            or clean_title.endswith(".php")
+            or len(clean_title) < 3
+        ):
+            log_message(f"Skipping HTML page because title is invalid: '{title}'")
+            return False
+
         doc_type = map_doc_type(url, title)
 
-        # Save into unified documents table with correct doc_type
         save_document(
             title=title,
             date=None,
-            source_url=url,
+           source_url=url,
             content=content,
-            doc_type=doc_type
+            doc_type=doc_type,
         )
 
-        # ✅ Route to correct service (currently all static pages still use save_notice)
         save_notice(title, url, content[:3000])
 
         return True
 
     except Exception as e:
-        log_message(f"Error processing HTML {url}: {e}")
+        log_message(f"HTML error {url}: {e}")
         return False
+    
+#--------------------------#
+#--------------------------#
+# pdf title
+# -------------------------#
+# -------------------------#    
+def get_pdf_title(link, file_url):
+    text = link.get_text(" ", strip=True)
 
+    GENERIC = {
+        "", "click here", "download", "pdf", "view",
+        "details", "read more", "admissions 2026", "admission 2026"
+    }
+
+    if text.lower() in GENERIC:
+        return os.path.basename(urlparse(file_url).path)
+
+    return text
+
+# ======================
+# CRAWLER
+# ======================
 def crawl_page(url):
-    if url in visited:
-        return
-    visited.add(url)
-    save_state()
-
-    log_message("="*60)
-    log_message(f"CRAWLING: {url}")
-    log_message("="*60)
-
-    if url.lower().endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx")):
-        downloaded_files.append(url)
-        log_message(f"Direct file detected: {url}")
-        process_pdf(title="Untitled", pdf_url=url)
-        return
+    url = url.split("#")[0].rstrip("/")
 
     try:
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        log_message(f"CRAWLING: {url}")
 
-        headings = [h.get_text(strip=True) for h in soup.find_all(["h1","h2","h3"])]
-        paragraphs = [p.get_text(strip=True) for p in soup.find_all("p")]
-        log_message("HEADINGS: " + str(headings[:5]))
-        log_message("PARAGRAPHS: " + str(paragraphs[:3]))
+        if is_visited(url):
+            return
 
-        tables = soup.find_all("table")
-        log_message(f"TOTAL TABLES: {len(tables)}")
-        for i, table in enumerate(tables):
-            table_text = table.get_text(separator="\n", strip=True)
-            log_message(f"TABLE {i+1} (preview): {table_text[:500]}")
+        mark_visited(url)
 
-        # ✅ Process HTML content
-        process_html(headings[0] if headings else "Untitled", url, soup)
+        # continue crawl logic below safely...
 
-        # Discover and process files
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            file_url = urljoin(url, href)
-            if href.lower().endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx")):
-                downloaded_files.append(file_url)
-                log_message(f"Found file: {file_url}")
-                process_pdf(title=headings[0] if headings else "Untitled", pdf_url=file_url)
+    except Exception as e:
+        log_message(f"Crawl error {url}: {e}")
 
-        # Recursively follow internal links
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            next_url = urljoin(url, href)
+    log_message("=" * 60)
+    log_message(f"CRAWLING: {url}")
+
+    try:
+        if url.lower().endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx")):
+            process_pdf(os.path.basename(url), url)
+            return
+
+        html = fetch_html(url)
+        if not html:
+            log_message("Empty response → skipping")
+            return
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        headings = [
+            h.get_text(" ", strip=True)
+            for h in soup.find_all(["h1", "h2", "h3"])
+        ]
+
+        title = ""
+
+        for h in headings:
+            if len(h) > 5:
+                title = h
+                break
+
+        if not title and soup.title:
+            title = soup.title.get_text(strip=True)
+
+        if not title:
+            title = os.path.basename(url)
+
+        process_html(title, url, soup)
+
+        for a in soup.find_all("a", href=True):
+            file_url = urljoin(url, a["href"])
+            if file_url.lower().endswith((".pdf",".doc",".docx",".xls",".xlsx")):
+                process_pdf(get_pdf_title(a, file_url), file_url)
+
+        for a in soup.find_all("a", href=True):
+            next_url = urljoin(url, a["href"])
+            next_url = next_url.split("#")[0].rstrip("/")
             if urlparse(next_url).netloc == urlparse(BASE_URL).netloc:
-                if next_url not in visited and next_url.startswith(BASE_URL):
+                if not is_visited(next_url):
                     crawl_page(next_url)
 
     except Exception as e:
-        log_message(f"Error crawling {url}: {e}")
+        log_message(f"Crawl error {url}: {e}")
 
-def write_summary():
-    log_message("="*60)
-    log_message("UNIFIED CRAWL SUMMARY")
-    log_message("="*60)
-    log_message(f"Total pages crawled: {len(visited)}")
-    log_message(f"Total files discovered: {len(downloaded_files)}")
-    log_message("="*60)
 
+# ======================
+# MAIN
+# ======================
 if __name__ == "__main__":
-    if not os.path.exists(VISITED_FILE):
+    if not os.path.exists(LOG_FILE):
         open(LOG_FILE, "w").close()
-    load_state()
+    init_db()
 
     START_PAGES = [
         BASE_URL,
         BASE_URL + "admissions.php",
-        BASE_URL + "module.php?id=52", # About Us
-        BASE_URL + "module.php?id=47", # Public Disclosure
-        BASE_URL + "module.php?id=53", # Examination Cell
-        BASE_URL + "module.php?id=21", # Library
-        BASE_URL + "module.php?id=50", # Central Research Laboratory
-        BASE_URL + "module.php?id=51", # Innovation and Incubation Centre
-        BASE_URL + "module.php?id=54", # Entrepreneurship Cell
-        BASE_URL + "module.php?id=48", # Scholarship
-        BASE_URL + "module.php?id=49", # Hostel
-        BASE_URL + "grievances.php",   # Grievances
-        BASE_URL + "module.php?id=40", # NCC
-        BASE_URL + "Syllabus/Index/True?pp=UG", # Syllabus
-        BASE_URL + "module.php?id=57", # Student Corner
-        BASE_URL + "iqac.php",         # IQAC
-        BASE_URL + "module.php?id=59", # NIRF
+        BASE_URL + "module.php?id=52",
+        BASE_URL + "module.php?id=47",
+        BASE_URL + "module.php?id=53",
+        BASE_URL + "module.php?id=21",
+        BASE_URL + "module.php?id=50",
+        BASE_URL + "module.php?id=51",
+        BASE_URL + "module.php?id=54",
+        BASE_URL + "module.php?id=48",
+        BASE_URL + "module.php?id=49",
+        BASE_URL + "grievances.php",
+        BASE_URL + "departments.php?id=40",
+        BASE_URL + "Syllabus/Index/True?pp=UG",
+        BASE_URL + "module.php?id=57",
+        BASE_URL + "iqac.php",
+        BASE_URL + "module.php?id=59",
     ]
 
     for page in START_PAGES:

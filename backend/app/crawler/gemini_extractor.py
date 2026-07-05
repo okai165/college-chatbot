@@ -1,18 +1,18 @@
 import json
+import re
+from app.services.llm import generate_llm_response
 
-from app.services.llm import client
 
-def extract_notification_data(text):
+def extract_notification_data(text: str):
 
     prompt = f"""
 You are a college notification analyzer.
 
-Extract information from the document.
+Extract structured information from the document.
 
-Return ONLY valid JSON.
+Return ONLY valid JSON. No explanations. No markdown.
 
 Schema:
-
 {{
     "title": "",
     "category": "",
@@ -24,19 +24,29 @@ Schema:
 }}
 
 Document:
-
 {text[:8000]}
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+    response = generate_llm_response(prompt)
 
-    json_text = response.text.strip()
+    json_text = response.strip()
 
-    if json_text.startswith("```json"):
-        json_text = json_text.replace("```json", "")
-        json_text = json_text.replace("```", "")
+    # -----------------------------
+    # Clean markdown wrappers if model adds them
+    # -----------------------------
+    json_text = re.sub(r"```json", "", json_text)
+    json_text = re.sub(r"```", "", json_text).strip()
 
-    return json.loads(json_text)
+    # -----------------------------
+    # Extract only JSON block (safe parsing)
+    # -----------------------------
+    try:
+        return json.loads(json_text)
+
+    except json.JSONDecodeError:
+        # fallback: try to extract first JSON object
+        match = re.search(r"\{.*\}", json_text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+
+        raise ValueError("LLM did not return valid JSON")

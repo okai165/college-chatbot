@@ -1,6 +1,4 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
 from app.routes.admin_auth import router as admin_auth_router
 from app.routes.admin_stats import router as admin_stats_router
 from app.routes.faculty import router as faculty_router
@@ -13,7 +11,7 @@ from app.routes.chat import router as chat_router
 from app.routes.notifications import router as notifications_router
 from app.crawler.scheduler import start_scheduler
 from app.routes.admissions import router as admissions_router
-print("API KEY LOADED:", os.getenv("GOOGLE_API_KEY"))
+print("LLM_API_KEY:", os.getenv("LLM_API_KEY"))
 
 app = FastAPI()
 @app.on_event("startup")

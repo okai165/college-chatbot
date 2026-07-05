@@ -1,45 +1,86 @@
 def classify_notice(title, text):
+    combined = (title + " " + text[:3000]).lower()
 
-    combined = (
-        title + " " + text[:1000]
-    ).lower()
+    def match(keywords):
+        return any(k in combined for k in keywords)
 
-    scholarship_keywords = [
-        "scholarship",
-        "financial assistance"
-    ]
+    # =====================================================
+    # STRICT HIGH PRIORITY (must override everything)
+    # =====================================================
+    if match(["nirf", "national institutional ranking"]):
+        return "nirf"
 
-    fee_keywords = [
-        "fee structure",
-        "college fee",
-        "course-wise fee",
-        "university fee"
-    ]
+    if match(["iqac", "internal quality assurance"]):
+        return "iqac"
 
-    admission_keywords = [
-        "admission",
-        "selection list",
-        "merit list",
-        "counselling",
-        "fyugp"
-    ]
+    if match(["anti ragging", "grievance cell", "complaint"]):
+        return "grievance"
 
-    if any(
-        keyword in combined
-        for keyword in scholarship_keywords
-    ):
-        return "scholarship"
+    if match(["hostel accommodation", "hostel admission"]):
+        return "hostel"
 
-    if any(
-        keyword in combined
-        for keyword in fee_keywords
-    ):
+    if match(["fee structure", "course-wise fee", "fee schedule"]):
         return "fee"
 
-    if any(
-        keyword in combined
-        for keyword in admission_keywords
-    ):
+    # =====================================================
+    # EXAMINATION (high confidence)
+    # =====================================================
+    if match([
+        "datesheet",
+        "date sheet",
+        "revaluation",
+        "result notification",
+        "examination schedule"
+    ]):
+        return "examination"
+
+    # =====================================================
+    # SCHOLARSHIP
+    # =====================================================
+    if match([
+        "scholarship",
+        "financial assistance",
+        "post matric",
+        "pm scholarship"
+    ]):
+        return "scholarship"
+
+    # =====================================================
+    # ADMISSION (ONLY IF STRONG SIGNAL)
+    # =====================================================
+    if match([
+        "spot round",
+        "merit list",
+        "counselling",
+        "fyugp",
+        "admission notification",
+        "selection list",
+        "commencement of classwork"
+    ]):
         return "admission"
 
+    # =====================================================
+    # LIBRARY
+    # =====================================================
+    if match(["e-library", "digital library", "library rules"]):
+        return "library"
+
+    # =====================================================
+    # RESEARCH / INNOVATION / ENTREPRENEURSHIP
+    # =====================================================
+    if match(["central research laboratory", "publication", "laboratory"]):
+        return "research"
+
+    if match(["innovation centre", "incubation", "startup"]):
+        return "innovation"
+
+    if match(["entrepreneurship cell", "startup cell"]):
+        return "entrepreneurship"
+
+    if match(["ncc", "national cadet corps"]):
+        return "ncc"
+
+    # =====================================================
+    # FINAL FALLBACK
+    # =====================================================
     return "notice"

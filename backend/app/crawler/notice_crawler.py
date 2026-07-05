@@ -111,15 +111,21 @@ if __name__ == "__main__":
     START_PAGES = [
         BASE_URL,
         BASE_URL + "admissions.php",
-        BASE_URL + "aboutus.php",
-        BASE_URL + "public_disclosure.php",
-        BASE_URL + "academics.php",
-        BASE_URL + "research.php",
-        BASE_URL + "entrepreneurship.php",
-        BASE_URL + "student_corner.php",
-        BASE_URL + "iqac.php",
-        BASE_URL + "nirf.php",
-        BASE_URL + "login.php"
+        BASE_URL + "module.php?id=52", # About Us
+        BASE_URL + "module.php?id=47", # Public Disclosure
+        BASE_URL + "module.php?id=53", # Examination Cell
+        BASE_URL + "module.php?id=21", # Library
+        BASE_URL + "module.php?id=50", # Central Research Laboratory
+        BASE_URL + "module.php?id=51", # Innovation and Incubation Centre
+        BASE_URL + "module.php?id=54", # Entrepreneurship Cell
+        BASE_URL + "module.php?id=48", # Scholarship
+        BASE_URL + "module.php?id=49", # Hostel
+        BASE_URL + "grievances.php",   # Grievances
+        BASE_URL + "departments.php?id=40", # NCC
+        BASE_URL + "Syllabus/Index/True?pp=UG", # Syllabus
+        BASE_URL + "module.php?id=57", # Student Corner
+        BASE_URL + "iqac.php",         # IQAC
+        BASE_URL + "module.php?id=59", # NIRF
     ]
 
     for page in START_PAGES:

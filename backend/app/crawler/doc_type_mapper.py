@@ -1,28 +1,106 @@
-def map_doc_type(url: str, title: str) -> str:
-    """Return a meaningful doc_type based on URL or page title."""
-    lower_url = url.lower()
-    lower_title = title.lower()
+def map_doc_type(url: str, title: str, content: str = "") -> str:
 
-    if "module.php?id=53" in lower_url or "examination" in lower_title:
-        return "examination"
-    if "grievances" in lower_url or "grievance" in lower_title or "complaint" in lower_title:
-        return "grievance"
-    if "library" in lower_url:
-        return "library"
-    if "hostel" in lower_url:
-        return "hostel"
-    if "innovation" in lower_url or "incubation" in lower_title:
-        return "innovation"
-    if "scholarship" in lower_url:
+    text = f"{url} {title} {content[:2000]}".lower()
+
+    # Admission
+    if any(x in text for x in [
+        "admission",
+        "selection list",
+        "merit list",
+        "spot round",
+        "fyugp",
+        "eligibility"
+    ]):
+        return "admission"
+
+    # Fee
+    if any(x in text for x in [
+        "fee structure",
+        "college fee",
+        "course-wise fee",
+        "university fee",
+        "fee schedule"
+    ]):
+        return "fee"
+
+    # Scholarship
+    if any(x in text for x in [
+        "scholarship",
+        "financial assistance"
+    ]):
         return "scholarship"
-    if "iqac" in lower_url:
-        return "iqac"
-    if "nirf" in lower_url:
-        return "nirf"
-    if "ncc" in lower_url:
-        return "ncc"
-    if "entrepreneurship" in lower_url:
+
+    # Examination
+    if any(x in text for x in [
+        "module.php?id=53",
+        "examination",
+        "exam",
+        "datesheet",
+        "date sheet",
+        "revaluation",
+        "result"
+    ]):
+        return "examination"
+
+    # Library
+    if "library" in text:
+        return "library"
+
+    # Research
+    if any(x in text for x in [
+        "research",
+        "laboratory"
+    ]):
+        return "research"
+
+    # Innovation
+    if any(x in text for x in [
+        "innovation",
+        "incubation"
+    ]):
+        return "innovation"
+
+    # Entrepreneurship
+    if "entrepreneurship" in text:
         return "entrepreneurship"
 
-    # fallback
+    # Hostel
+    if "hostel" in text:
+        return "hostel"
+
+    # Grievance
+    if any(x in text for x in [
+        "grievance",
+        "complaint"
+    ]):
+        return "grievance"
+
+    # NCC
+    if "ncc" in text:
+        return "ncc"
+
+    # IQAC
+    if "iqac" in text:
+        return "iqac"
+
+    # NIRF
+    if "nirf" in text:
+        return "nirf"
+
+    # Student Corner
+    if "student corner" in text:
+        return "student_corner"
+
+    # Syllabus
+    if "syllabus" in text:
+        return "syllabus"
+
+    # About
+    if "about us" in text:
+        return "about"
+
+    # Public Disclosure
+    if "public disclosure" in text:
+        return "disclosure"
+
     return "notice"

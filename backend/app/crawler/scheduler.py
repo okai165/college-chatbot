@@ -1,53 +1,63 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from app.crawler.crawler import crawl_page, write_summary, BASE_URL
 from datetime import datetime
 
+from app.crawler.crawler import crawl_page, BASE_URL
+from app.crawler.state_store import init_db, clear_visited   # ✅ use SQLite reset
+
 scheduler = BackgroundScheduler()
+
 
 def start_scheduler():
     print("INSIDE START_SCHEDULER")
 
+    # ✅ Ensure DB and table exist before scheduling jobs
+    init_db()
+
     START_PAGES = [
         BASE_URL,
         BASE_URL + "admissions.php",
-        BASE_URL + "aboutus.php",
-        BASE_URL + "public_disclosure.php",
-        BASE_URL + "academics.php",
-        BASE_URL + "research.php",
-        BASE_URL + "entrepreneurship.php",
-        BASE_URL + "student_corner.php",
+        BASE_URL + "module.php?id=52",
+        BASE_URL + "module.php?id=47",
+        BASE_URL + "module.php?id=53",
+        BASE_URL + "module.php?id=21",
+        BASE_URL + "module.php?id=50",
+        BASE_URL + "module.php?id=51",
+        BASE_URL + "module.php?id=54",
+        BASE_URL + "module.php?id=48",
+        BASE_URL + "module.php?id=49",
+        BASE_URL + "grievances.php",
+        BASE_URL + "departments.php?id=40",
+        BASE_URL + "Syllabus/Index/True?pp=UG",
+        BASE_URL + "module.php?id=57",
         BASE_URL + "iqac.php",
-        BASE_URL + "nirf.php",
-        BASE_URL + "login.php"
+        BASE_URL + "module.php?id=59",
     ]
 
     def run_unified_crawl():
-        from app.crawler import crawler
-        # Reset counters and state at the start of each run
-        crawler.saved = 0
-        crawler.skipped = 0
-        crawler.failed = 0
-        crawler.downloaded_files.clear()
-        crawler.visited.clear()
+        print("\n" + "=" * 60)
+        print(f"STARTING UNIFIED CRAWL JOB at {datetime.now()}")
+        print("=" * 60)
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print("\n" + "="*60)
-        print(f"STARTING UNIFIED CRAWL JOB at {timestamp}")
-        print("="*60)
+        # ✅ Reset persistent visited store
+        clear_visited()
 
+        # Crawl
         for page in START_PAGES:
             crawl_page(page)
 
-        write_summary()
+        print("\n" + "=" * 60)
+        print("UNIFIED CRAWL SUMMARY")
+        print("=" * 60)
+        print("Crawl completed successfully")
+        print("=" * 60)
 
-    # Schedule the unified crawler every 3 hours
     scheduler.add_job(
         run_unified_crawl,
-        "interval",
+        trigger="interval",
         hours=3,
         next_run_time=datetime.now(),
         id="college_crawler",
-        replace_existing=True
+        replace_existing=True,
     )
 
     print("JOB ADDED")

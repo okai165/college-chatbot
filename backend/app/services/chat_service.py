@@ -1,26 +1,25 @@
+import os
 from sqlalchemy import text
 from app.db.database import engine
 from app.rag.retriever import retrieve_similar_chunks
-from app.services.llm import client
-from sqlalchemy import text
+from app.services.llm import generate_llm_response
 from app.rag.notification_retriever import search_notifications
 from app.rag.keyword_search import keyword_search
 from app.rag.query_analyzer import analyze_query
 from app.rag.subject_aliases import SUBJECT_ALIASES
-from app.rag.subject_mapper import SUBJECT_ALIASES
 from app.crawler.doc_type_mapper import map_doc_type
 import time
-import re 
+import re
 
 # Store last faculty subject per session
 last_subject_by_session = {}
+
 # =========================
 # CHAT MEMORY
 # =========================
 def get_chat_history(session_id, limit=3):
 
     with engine.connect() as conn:
-
         result = conn.execute(
             text("""
                 SELECT role, message
@@ -29,18 +28,16 @@ def get_chat_history(session_id, limit=3):
                 ORDER BY id DESC
                 LIMIT :limit
             """),
-            {
-                "session_id": session_id,
-                "limit": limit
-            }
+            {"session_id": session_id, "limit": limit}
         )
 
         rows = result.fetchall()
 
     return rows[::-1]
 
+
 # =========================
-# QUERY REWRITER
+# QUERY REWRITER (NOW USING YOUR LLM)
 # =========================
 def rewrite_query(user_query, history):
 
@@ -51,39 +48,7 @@ def rewrite_query(user_query, history):
     prompt = f"""
 You are a query rewriting assistant.
 
-Your job is to convert follow-up questions into complete standalone questions.
-
-Examples:
-
-Conversation:
-user: who teaches python
-assistant: python is taught by prof rashid ashraf
-
-User:
-where
-
-Standalone Question:
-where is the python class held?
-
-Conversation:
-user: who teaches python
-assistant: python is taught by prof rashid ashraf
-
-User:
-when
-
-Standalone Question:
-when is the python class scheduled?
-
-Conversation:
-user: tell me the dress code
-assistant: students must wear uniforms
-
-User:
-and what about boys
-
-Standalone Question:
-what is the boys uniform according to the college dress code?
+Convert follow-up questions into standalone questions.
 
 Conversation:
 {memory_text}
@@ -95,13 +60,7 @@ Standalone Question:
 """
 
     try:
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
-
-        rewritten_query = response.text.strip()
+        rewritten_query = generate_llm_response(prompt).strip()
 
         print("\n========== REWRITTEN QUERY ==========")
         print(rewritten_query)
@@ -110,67 +69,52 @@ Standalone Question:
 
     except Exception:
         return user_query
+
+
+# =========================
+# INTENT CLASSIFIER
+# =========================
 def classify_intent(query: str) -> str:
     query = query.lower()
 
     if any(x in query for x in ["can i wear", "allowed", "dress code", "uniform"]):
         return "policy"
-    
+
     if any(x in query for x in ["who teaches", "faculty", "teacher"]):
         return "faculty"
-    
+
     if any(x in query for x in ["where", "when", "time", "room"]):
         return "schedule"
 
-    if "examination cell" in query or "exam cell" in query or "controller of examinations" in query:
-        return "examination"   # must match crawler doc_type
-    if "grievance" in query or "complaint" in query or "internal complaints committee" in query:
-        return "grievance"     # must match crawler doc_type
+    if "examination cell" in query or "exam cell" in query:
+        return "examination"
+
+    if "grievance" in query or "complaint" in query:
+        return "grievance"
+
     if "library" in query:
         return "library"
+
     if "hostel" in query:
         return "hostel"
+
     if "iqac" in query:
         return "iqac"
+
     if "nirf" in query:
         return "nirf"
+
     if "ncc" in query:
         return "ncc"
+
     if "entrepreneurship" in query:
         return "entrepreneurship"
+
     if "innovation" in query or "incubation" in query:
         return "innovation"
 
     return "general"
-def handle_policy_query(query, docs):
-    context = "\n".join([d.content for d in docs if d.content])
 
-    prompt = f"""
-You are a college policy validation assistant.
-
-Extract rules from the context and answer clearly.
-
-Context:
-{context}
-
-Question:
-{query}
-
-Rules:
-- If the action is not allowed → explicitly say Verdict: NOT ALLOWED and explain why, referencing the policy
-- If the action is allowed → explicitly say Verdict: ALLOWED and explain why, referencing the policy
-- If unclear → say not found
-- Always provide a short explanation based on the policy instead of only saying ALLOWED/NOT ALLOWED
-- Format the answer as:
-  Verdict: ALLOWED/NOT ALLOWED
-  Policy Reference: <short explanation from context>
-"""
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
-
-    return response.text
 
 # =========================
 # FACULTY SEARCH
@@ -179,17 +123,10 @@ def search_faculty(query: str):
 
     query = query.strip().lower()
 
-    print("SQL SEARCH:", query)
-
     with engine.connect() as conn:
-
         result = conn.execute(
             text("""
-                SELECT
-                    faculty_name,
-                    subject_name,
-                    time_slot,
-                    room_number
+                SELECT faculty_name, subject_name, time_slot, room_number
                 FROM faculty_schedule
                 WHERE
                     LOWER(subject_name) = :query
@@ -197,366 +134,208 @@ def search_faculty(query: str):
                     OR LOWER(faculty_name) LIKE :like_query
                 LIMIT 5
             """),
-            {   
+            {
                 "query": query,
                 "like_query": f"%{query}%"
             }
         )
 
         rows = result.fetchall()
-
-        print("SQL RESULTS:", rows)
-
         return rows
 
+
+# =========================
+# CLEAN FACULTY QUERY
+# =========================
 def clean_faculty_query(rewritten_query: str) -> str:
     query = rewritten_query.lower()
-    # Remove filler words but keep subject keywords intact
+
     remove_words = [
-        "who", "teaches", "teach", "teacher", "faculty",
-        "of", "what", "when", "where", "is", "the", "class",
-        "room", "classroom", "timing", "time", "schedule",
-        "for", "at", "in"
+        "who", "teaches", "teacher", "faculty",
+        "what", "when", "where", "is", "the",
+        "class", "room", "time", "schedule"
     ]
+
     for word in remove_words:
         query = re.sub(rf"\b{word}\b", " ", query)
 
-    query = re.sub(r"[^\w\s]", "", query)  # remove punctuation
-    query = " ".join(query.split())        # normalize spaces
-    return query.strip()
-
-SUBJECT_ALIASES.update({
-    "examination cell": "examination",
-    "exam cell": "examination",
-    "controller of examinations": "examination",
-    "grievance cell": "grievance",
-    "internal complaints committee": "grievance",
-    "library": "library",
-    "hostel": "hostel",
-    "iqac": "iqac",
-    "nirf": "nirf",
-    "ncc": "ncc",
-    "entrepreneurship cell": "entrepreneurship",
-    "innovation centre": "innovation",
-})
+    query = re.sub(r"[^\w\s]", "", query)
+    return " ".join(query.split()).strip()
 
 
-
+# =========================
+# SUBJECT NORMALIZATION
+# =========================
 def normalize_subject(subject):
 
     if not subject:
         return ""
 
     subject = subject.lower().strip()
-
     return SUBJECT_ALIASES.get(subject, subject)
+
+
 # =========================
 # MAIN RAG FUNCTION
 # =========================
-
 def generate_response(user_query, session_id):
-    query = user_query.lower().strip()
-    
-     # Greetings
+
     query = user_query.lower().strip()
     notifications = []
-    
 
-    # Casual / small talk responses
-    if query in ["hi", "hello", "hey", "hii", "yo", "sup"]:
+    # =========================
+    # SMALL TALK
+    # =========================
+    if query in ["hi", "hello", "hey"]:
         return "Hello! 👋 How can I help you today?"
 
-    if query in ["how are you", "how r u", "how's it going", "what's up"]:
-        return "I'm doing well, thanks for asking! How can I assist you?"
-
-    if query in ["thanks", "thank you", "thx", "ty", "much appreciated"]:
-        return "You're welcome! 😊"
-
-    if query in ["bye", "goodbye", "see ya", "cya", "later", "take care"]:
+    if query in ["bye", "goodbye"]:
         return "Goodbye! Have a great day."
 
-    if query in ["ok", "okay", "k", "alright", "cool", "fine", "sounds good"]:
-        return "Alright 👍"
-
-    if query in ["yes", "yep", "yeah", "sure", "of course", "absolutely", "definitely"]:
-        return "Okay, noted."
-
-    if query in ["no", "nope", "nah", "not really", "never"]:
-        return "Alright, no problem."
-
-    if query in ["good morning", "morning", "gm"]:
-        return "Good morning! 🌞 Hope you have a great day."
-
-    if query in ["good night", "night", "gn", "sweet dreams"]:
-        return "Good night! 🌙 Rest well."
-
-    if query in ["welcome", "you're welcome"]:
-        return "Happy to help!"
-
-    if query in ["sorry", "apologies", "my bad"]:
-        return "No worries at all."
-
-
+    # =========================
+    # INTENT
+    # =========================
     intent = classify_intent(user_query)
 
-    # Handle follow-up questions
+    # =========================
+    # CHAT HISTORY
+    # =========================
     history = get_chat_history(session_id)
 
-    followup_words = [
-        "where",
-        "when",
-        "what time",
-        "room",
-        "there",
-        "it",
-        "he",
-        "she"
-    ]
+    followup_words = ["where", "when", "room", "time"]
 
-    if any(word in user_query.lower() for word in followup_words):
-        rewritten_query = rewrite_query(
-            user_query,
-            history
-        )
+    if any(word in query for word in followup_words):
+        rewritten_query = rewrite_query(user_query, history)
     else:
         rewritten_query = user_query
 
-    # Analyze query
+    # =========================
+    # ANALYZE QUERY
+    # =========================
     analysis = analyze_query(user_query)
+
     docs = retrieve_similar_chunks(
         rewritten_query + " " + analysis.get("subject", ""),
         semester=analysis.get("semester"),
         exam_type=analysis.get("exam_type"),
         doc_type=analysis.get("intent")
     )
-    if analysis["intent"] == "general":
 
-        lower_query = user_query.lower()
-
-        if "teach" in lower_query or "faculty" in lower_query:
-            analysis["intent"] = "faculty"
-
-            if "artificial intelligence" in lower_query:
-                analysis["subject"] = "ai"
-
-            elif "python" in lower_query:
-                analysis["subject"] = "python"
-
-            elif "java" in lower_query:
-                analysis["subject"] = "java"
-
-            elif "javascript" in lower_query:
-                analysis["subject"] = "javascript"
-    print("\n========== QUERY ANALYSIS ==========")
-    print(analysis)
-
-    intent = analysis.get("intent")
     subject = analysis.get("subject")
-    keywords = analysis.get("keywords", [])
 
+    # =========================
+    # FACULTY SEARCH QUERY HANDLING
+    # =========================
     if subject:
         clean_query = normalize_subject(subject)
+    elif session_id in last_subject_by_session:
+        # Reuse last subject if analyzer missed it
+        clean_query = last_subject_by_session[session_id]
     else:
         clean_query = clean_faculty_query(rewritten_query)
 
-    print("\n========== FACULTY SEARCH ==========")
-    print("Search Query:", clean_query)
-
-
-
     # =========================
-    # RETRIEVE DOCUMENTS
+    # NOTIFICATIONS
     # =========================
+    admission_keywords = ["admission", "fee", "eligibility", "course"]
 
-    #docs = retrieve_similar_chunks(
-    #rewritten_query + " " + subject
-    #)
-
-    #keyword_docs = keyword_search(
-        #" ".join(keywords)
-    #)
-    #docs.extend(keyword_docs)
-    #notifications = []
-
-    admission_keywords = [
-        "admission",
-        "eligibility",
-        "fee",
-        "fees",
-        "fyug",
-        "honours",
-        "honors",
-        "intake",
-        "seat",
-        "notification",
-        "notice",
-        "course"
-    ]
-
-    if any(
-        keyword in rewritten_query.lower()
-        for keyword in admission_keywords
-    ):
+    if any(k in rewritten_query.lower() for k in admission_keywords):
         notifications = search_notifications()
 
     # =========================
     # FACULTY SEARCH
     # =========================
-    print("\n========== FACULTY SEARCH ==========")
-    print("Search Query:", clean_query)
-    
-    followup_words = ["where", "when", "time", "timing", "at what time", "room", "classroom"]
-
-    # If it's a follow-up but we don't have a subject stored, return fallback immediately
-    if any(word in query for word in followup_words) and session_id not in last_subject_by_session:
-        return "Sorry, I cannot find relevant information in the college documents."
-
-    # If it's a follow-up and we DO have a subject stored, reuse it
-    if any(word in query for word in followup_words) and session_id in last_subject_by_session:
-        clean_query = last_subject_by_session[session_id]
-
-    
+    # =========================
+    # FACULTY SEARCH
+    # =========================
     faculty_rows = []
 
-    if intent == "faculty":
+    # Decide what subject to use
+    if subject:
+        clean_query = normalize_subject(subject)
+    elif session_id in last_subject_by_session:
+        # Reuse last subject if analyzer missed it
+        clean_query = last_subject_by_session[session_id]
+    else:
+        clean_query = clean_faculty_query(rewritten_query)
+
+    # Run faculty search if intent is faculty OR if user asked a follow-up (where/when/room/time)
+    if intent == "faculty" or any(word in query for word in ["where", "when", "room", "time"]):
         faculty_rows = search_faculty(clean_query)
+
     row = faculty_rows[0] if faculty_rows else None
 
-    faculty_context = ""
     if row:
+        # Always update session memory with the subject
         last_subject_by_session[session_id] = row.subject_name.lower()
-        if "who teaches" in query or "teacher" in query or "faculty" in query:
+
+        if "who" in query or "teacher" in query:
             return f"{row.subject_name} is taught by {row.faculty_name}."
-        elif "time" in query or "when" in query or "timing" in query or "at what time" in query:
-            return f"{row.subject_name} class is scheduled from {row.time_slot}."
-        elif "room" in query or "where" in query or "classroom" in query:
-            return f"{row.subject_name} class is held in {row.room_number}."
-        else:
-            return f"""
-    Faculty Name: {row.faculty_name}
-    Subject: {row.subject_name}
-    Time Slot: {row.time_slot}
-    Room Number: {row.room_number}
-    """
+
+        if "time" in query or "when" in query:
+            return f"{row.subject_name} is scheduled at {row.time_slot}."
+
+        if "room" in query or "where" in query:
+            return f"{row.subject_name} is in room {row.room_number}."
 
 
     # =========================
-    # BUILD DOCUMENT CONTEXT
+    # BUILD CONTEXT
     # =========================
-    notification_context = ""
-
-    for n in notifications:
-
-        notification_context += f"""
-    Title: {n.title}
-
-    Summary: {n.summary}
-
-    Eligibility: {n.eligibility}
-
-    Start Date: {n.start_date}
-
-    Last Date: {n.last_date}
-
-    -----------------------
-    """
-    context_chunks = []
-    for i, row in enumerate(docs):
-        if row.content:
-            cleaned = row.content.strip()
-            if cleaned:
-                # Include distance score for relevance weighting
-                context_chunks.append(
-                    f"[Chunk {i+1} | distance={row.distance:.4f}] {cleaned}"
-                )
+    context_chunks = [r.content.strip() for r in docs if r.content]
 
     if not context_chunks and not faculty_rows:
+        # Guard clause: if user asked "where" but no subject context exists
+        if any(word in query for word in followup_words) and session_id not in last_subject_by_session:
+            return "Please specify the subject (e.g., 'Where is Python class?')."
         return "Sorry, I cannot find relevant information in the college documents."
 
-    # Limit context length (truncate if > 12000 chars)
-    document_context = "\n\n".join(context_chunks)
-    if len(document_context) > 12000:
-        document_context = document_context[:12000] + "\n...[truncated]"
+    document_context = "\n\n".join(context_chunks)[:12000]
 
-    context = f"""
-    COLLEGE DOCUMENTS:
+    notification_context = "\n\n".join(
+        [f"{n.title} - {n.summary}" for n in notifications]
+    )
 
-    {faculty_context}
+    history_text = "\n".join([f"{h.role}: {h.message}" for h in history])
 
-    {document_context}
-
-    ADMISSION NOTIFICATIONS:
-
-    {notification_context}
-    """
-
-    # =========================
-    # CHAT MEMORY
-    # =========================
-    history = get_chat_history(session_id)
-    memory_text = "\n".join([f"{h.role}: {h.message}" for h in history]) if history else ""
-
-    # =========================
-    # STRICT PROMPT
-    # =========================
     prompt = f"""
-You are an AI assistant for Government College for Women M.A. Road Srinagar.
+You are an AI assistant for Cluster University.
 
-Answer using the provided context.
+Instructions:
 
-Rules:
+1. Answer ONLY from DOCUMENT CONTEXT and NOTIFICATIONS.
+2. Do not invent facts.
+3. If the answer is not available, say:
+   "I couldn't find that information in the university documents."
+4. Prefer DOCUMENT CONTEXT over general knowledge.
+5. If CHAT HISTORY helps resolve pronouns like "it" or "that", use it.
+6. Answer naturally in 2-5 sentences.
+7. If multiple relevant documents exist, combine them into one coherent answer.
 
-- Use information from retrieved documents.
-- Combine information from multiple documents if needed.
-- Answer naturally.
-- If partial information exists, provide the available information.
-- Only say:
+--------------------
 
-Sorry, I cannot find relevant information in the college documents.
+CHAT HISTORY
+{history}
 
-when the answer is not present anywhere in the context.
-
-CHAT HISTORY:
-{memory_text}
-
-CONTEXT:
+DOCUMENT CONTEXT
 {context}
 
-QUESTION:
-{user_query}
+NOTIFICATIONS
+{notifications}
+
+QUESTION
+{question}
+
+ANSWER:
 """
-
-    print("\n========== SENDING TO GEMINI ==========\n")
-
     # =========================
-    # GEMINI RESPONSE WITH RETRY
+    # LLM CALL (ONLY HERE)
     # =========================
     for attempt in range(3):
         try:
-            print("Gemini API call started")
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
-            print("\n========== GEMINI RESPONSE ==========\n")
-            print(response.text)
-            return response.text
+            return generate_llm_response(prompt)
         except Exception as e:
-            if "RESOURCE_EXHAUSTED" in str(e):
-                print("Gemini quota exhausted")
-                return (
-                    "AI service quota exhausted. "
-                    "Please try again later."
-                )
-
-            print(f"\n❌ RETRY {attempt + 1}/3")
-
+            print(f"Retry {attempt+1}/3 failed:", e)
             time.sleep(2)
-    if docs:
-        return docs[0].content[:2000]
 
-    return (
-        "Sorry, I cannot find relevant information "
-        "in the college documents."
-    )
-
+    return "Sorry, AI service is currently unavailable."
