@@ -16,7 +16,7 @@ import AdminHome from "./pages/AdminHome";
 import Dashboard from "./pages/Dashboard";
 import FacultyManager from "./pages/FacultyManager";
 import UploadDocuments from "./pages/UploadDocuments";
-import HeroSection from "./components/HeroSection";
+// import HeroSection from "./components/HeroSection";
 import FeatureSection from "./components/FeatureSection";
 import { cardCategories } from "./data/cards";
 import Admissions from "./pages/Admissions";
@@ -38,7 +38,7 @@ function ChatWidget() {
   // STATES
   // =========================
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   // const [sidebarOpen, setSidebarOpen] =
   //   useState(window.innerWidth > 768);
@@ -47,10 +47,10 @@ function ChatWidget() {
     useState(false);
 
   const [input, setInput] = useState("");
-
+  const [chatVisible, setChatVisible] = useState(true);
   const [messages, setMessages] =
     useState([]);
-
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] =
     useState(false);
 
@@ -591,48 +591,51 @@ function ChatWidget() {
       };
 
   return (
-  <div>
-  {/* Landing Content */}
-   {!open && (
-  <div className="container">
+  <div className="app-layout">
+    {sidebarOpen ? (
 
-    <HeroSection
-      onChatOpen={() => setOpen(true)}
-    />
+        <aside className="sidebar">
 
-    {
-    cardCategories.map((category) => (
-      <FeatureSection
-        key={category.title}
-        title={category.title}
-        cards={category.cards}
-        onCardClick={handleCardClick}
-      />
-    ))}
+            <div className="sidebar-header">
 
-  </div>
-)}
+                <h2>AI Assistant</h2>
 
-    {/* CHAT WINDOW */}
+                <button onClick={() => setSidebarOpen(false)}>
+                    ✕
+                </button>
 
-    {open && (
+            </div>
 
+            {cardCategories.map((category) => (
+
+                <FeatureSection
+                    key={category.title}
+                    title={category.title}
+                    cards={category.cards}
+                    onCardClick={handleCardClick}
+                />
+
+            ))}
+
+        </aside>
+
+    ) : (
+
+        <div className="collapsed-sidebar">
+
+            <button onClick={() => setSidebarOpen(true)}>
+                click here for more options ☰
+            </button>
+
+        </div>
+
+    )}
+    {chatVisible && (
       <div
-        style={{
-         position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          background: colors.bg,
-          overflow: "hidden"
-        }}
+       className="chat-container"
       >
 
-        {/* SIDEBAR */}
+        
 
       
 
@@ -774,7 +777,7 @@ function ChatWidget() {
               </button>
               <button title="minimize"
                 onClick={() =>
-                  setOpen(false)
+                  setChatVisible(false)
                 }
                 style={{
                   background:
@@ -1047,8 +1050,7 @@ function ChatWidget() {
         </div>
 
       </div>
-
-    )}
+      )}
 
     {/* SPINNER STYLE */}
 

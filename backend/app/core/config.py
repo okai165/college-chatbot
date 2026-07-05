@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-ENV_PATH = Path("C:/Users/Elite Fusion Tech/OneDrive/Desktop/Project/.env")
+BASE_DIR = Path(__file__).resolve().parents[3]
+ENV_PATH = BASE_DIR / ".env"
 
 if ENV_PATH.exists():
     load_dotenv(dotenv_path=ENV_PATH, override=True)

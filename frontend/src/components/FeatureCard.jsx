@@ -3,8 +3,19 @@ import "./../styles/cards.css";
 function FeatureCard({ title, icon, onClick }) {
   return (
     <div className="feature-card" onClick={onClick}>
-      <div className="card-icon">{icon}</div>
-      <h3>{title}</h3>
+
+        <div className="left">
+
+            <span className="card-icon">
+                {icon}
+            </span>
+
+            <span>{title}</span>
+
+        </div>
+
+        <span>›</span>
+
     </div>
   );
 }
