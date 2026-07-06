@@ -8,6 +8,10 @@ from app.crawler.pdf_parser import parse_notice_metadata
 # CHECK IF DOCUMENT EXISTS
 # ==========================
 def document_exists(source_url):
+    """
+    Check if document already exists (ANY chunk).
+    We treat source_url as the document identity.
+    """
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -25,13 +29,6 @@ def document_exists(source_url):
 # SIMPLE WORD CHUNKER
 # ==========================
 def chunk_text(text, chunk_size=400, overlap=80):
-    """
-    Split text into overlapping chunks.
-
-    chunk_size = number of words
-    overlap = repeated words between chunks
-    """
-
     words = text.split()
 
     if len(words) <= chunk_size:
@@ -42,7 +39,6 @@ def chunk_text(text, chunk_size=400, overlap=80):
 
     while start < len(words):
         end = start + chunk_size
-
         chunks.append(" ".join(words[start:end]))
 
         if end >= len(words):
@@ -64,11 +60,16 @@ def save_document(
     doc_type="notice"
 ):
     try:
-
         print("\n========== SAVE DOCUMENT ==========")
         print("TITLE:", title)
         print("DOC TYPE:", doc_type)
         print("SOURCE:", source_url)
+
+        # (Optional) duplicate prevention
+        # You can keep this OR rely on DB constraint
+        if document_exists(source_url):
+            print("Skipping (already exists):", source_url)
+            return
 
         metadata = {}
 
@@ -76,7 +77,6 @@ def save_document(
             metadata = parse_notice_metadata(content)
 
         chunks = chunk_text(content)
-
         print(f"Created {len(chunks)} chunks")
 
         source_type = (
@@ -122,7 +122,8 @@ CONTENT:
                             semester,
                             exam_type,
                             batch,
-                            issued_date
+                            issued_date,
+                            chunk_index
                         )
                         VALUES
                         (
@@ -136,8 +137,11 @@ CONTENT:
                             :semester,
                             :exam_type,
                             :batch,
-                            :issued_date
+                            :issued_date,
+                            :chunk_index
                         )
+                        ON CONFLICT (source_url, chunk_index)
+                        DO NOTHING
                     """),
                     {
                         "content": full_text,
@@ -151,6 +155,7 @@ CONTENT:
                         "exam_type": metadata.get("exam_type"),
                         "batch": metadata.get("batch"),
                         "issued_date": metadata.get("issued_date") or date,
+                        "chunk_index": i
                     }
                 )
 

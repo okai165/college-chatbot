@@ -50,7 +50,18 @@ def log_message(msg):
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(entry + "\n")
 
+def chunk_text(text, chunk_size=400, overlap=80):
+    words = text.split()
+    chunks = []
 
+    start = 0
+    while start < len(words):
+        end = start + chunk_size
+        chunk = words[start:end]
+        chunks.append(" ".join(chunk))
+        start += chunk_size - overlap
+
+    return chunks
 # ======================
 # DOWNLOAD
 # ======================
@@ -164,15 +175,18 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
         except Exception as e:
             log_message(f"LLM cleaning skipped: {e}")
 
-        doc_type = map_doc_type(pdf_url, title)
+        doc_type = map_doc_type(pdf_url, title) or "general"
 
-        save_document(
-            title=title,
-            date=date,
-            source_url=pdf_url,
-            content=text,
-            doc_type=doc_type
-        )
+        chunks = chunk_text(text, chunk_size=400, overlap=80)
+
+        for i, chunk in enumerate(chunks):
+            save_document(
+                title=f"{title} (chunk {i+1})",
+                date=date,
+                source_url=pdf_url,
+                content=chunk,
+                doc_type=doc_type
+            )
 
         category = route_document(title, text)
         log_message(f"CATEGORY: {category}")
@@ -257,15 +271,18 @@ def process_html(title, url, soup):
             log_message(f"Skipping HTML page because title is invalid: '{title}'")
             return False
 
-        doc_type = map_doc_type(url, title)
+        doc_type = map_doc_type(url, title) or "general"
 
-        save_document(
-            title=title,
-            date=None,
-           source_url=url,
-            content=content,
-            doc_type=doc_type,
-        )
+        chunks = chunk_text(content, chunk_size=400, overlap=80)
+
+        for i, chunk in enumerate(chunks):
+            save_document(
+                title=f"{title} (chunk {i+1})",
+                date=None,
+                source_url=url,
+                content=chunk,
+                doc_type=doc_type,
+            )
 
         save_notice(title, url, content[:3000])
 

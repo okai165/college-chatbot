@@ -1,32 +1,14 @@
 [
   {
-    "filename": "Principal.txt",
+    "filename": "aboutus.txt",
     "category": "Misc",
-    "uploaded_at": "2026-06-10T08:57:02.439985",
-    "size": 2023
+    "uploaded_at": "2026-07-06T05:41:32.661587",
+    "size": 2325
   },
   {
     "filename": "dresscode.pdf",
     "category": "Misc",
-    "uploaded_at": "2026-06-10T08:57:19.047047",
+    "uploaded_at": "2026-07-06T05:42:13.181740",
     "size": 1507549
-  },
-  {
-    "filename": "internal datesheet.pdf",
-    "category": "Notice",
-    "uploaded_at": "2026-06-10T08:58:27.030845",
-    "size": 253642
-  },
-  {
-    "filename": "Registration & Preference Filling(Admission).txt",
-    "category": "Admission",
-    "uploaded_at": "2026-06-10T08:58:53.549594",
-    "size": 5036
-  },
-  {
-    "filename": "aboutus.txt",
-    "category": "Misc",
-    "uploaded_at": "2026-06-10T08:59:16.424037",
-    "size": 2325
   }
 ]

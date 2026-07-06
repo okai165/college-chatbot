@@ -218,7 +218,7 @@ def generate_response(user_query, session_id):
         rewritten_query + " " + analysis.get("subject", ""),
         semester=analysis.get("semester"),
         exam_type=analysis.get("exam_type"),
-        doc_type=analysis.get("intent")
+        #doc_type=analysis.get("intent")
     )
 
     subject = analysis.get("subject")
@@ -315,16 +315,16 @@ Instructions:
 --------------------
 
 CHAT HISTORY
-{history}
+{history_text}
 
 DOCUMENT CONTEXT
-{context}
+{document_context}
 
 NOTIFICATIONS
-{notifications}
+{notification_context}
 
 QUESTION
-{question}
+{user_query}
 
 ANSWER:
 """

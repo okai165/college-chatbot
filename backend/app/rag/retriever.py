@@ -53,8 +53,9 @@ def retrieve_similar_chunks(query: str, semester: str = None, exam_type: str = N
                     row.doc_type,
                     row.distance
                 )
-           # rows = [r for r in rows if r.distance < 0.9]S
-
+            SIMILARITY_THRESHOLD = 1.0
+            rows = [r for r in rows if r.distance < SIMILARITY_THRESHOLD]
+            rows = sorted(rows, key=lambda x: x.distance)[:5]
             print("\n========== RETRIEVED DOCUMENTS ==========\n")
             for row in rows:
                 print("DOCUMENT:", row.document_name)
