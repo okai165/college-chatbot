@@ -1,8 +1,9 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 
+from app.crawler.frontier import URLFrontier
 from app.crawler.crawler import crawl_page, BASE_URL
-from app.crawler.state_store import init_db, clear_visited   # ✅ use SQLite reset
+from app.crawler.state_store import init_db, clear_visited
 
 scheduler = BackgroundScheduler()
 
@@ -10,7 +11,7 @@ scheduler = BackgroundScheduler()
 def start_scheduler():
     print("INSIDE START_SCHEDULER")
 
-    # ✅ Ensure DB and table exist before scheduling jobs
+    # Initialize visited database
     init_db()
 
     START_PAGES = [
@@ -38,28 +39,49 @@ def start_scheduler():
         print(f"STARTING UNIFIED CRAWL JOB at {datetime.now()}")
         print("=" * 60)
 
-        # ✅ Reset persistent visited store
+        # Reset visited URLs for this crawl
         clear_visited()
 
-        # Crawl
+        # Create a fresh frontier
+        frontier = URLFrontier()
+
+        # Seed the queue
         for page in START_PAGES:
-            crawl_page(page)
+            frontier.add(page)
+
+        pages_crawled = 0
+
+        # Crawl until queue becomes empty
+        while not frontier.empty():
+
+            url = frontier.pop()
+
+            if url is None:
+                break
+
+            crawl_page(url, frontier)
+            pages_crawled += 1
 
         print("\n" + "=" * 60)
         print("UNIFIED CRAWL SUMMARY")
         print("=" * 60)
-        print("Crawl completed successfully")
+        print(f"Pages Crawled : {pages_crawled}")
+        print("Queue Empty   : True")
+        print("Crawl Completed Successfully")
         print("=" * 60)
 
+    # Register the job
     scheduler.add_job(
         run_unified_crawl,
         trigger="interval",
         hours=3,
-        next_run_time=datetime.now(),
+        next_run_time=datetime.now(),   # Run immediately once
         id="college_crawler",
         replace_existing=True,
     )
 
     print("JOB ADDED")
+
     scheduler.start()
+
     print("CRAWLER SCHEDULER STARTED")

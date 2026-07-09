@@ -217,7 +217,7 @@ def generate_response(user_query, session_id):
     docs = retrieve_similar_chunks(
         rewritten_query + " " + analysis.get("subject", ""),
         semester=analysis.get("semester"),
-        exam_type=analysis.get("exam_type"),
+        exam_type=analysis.get("exam_type")
         #doc_type=analysis.get("intent")
     )
 

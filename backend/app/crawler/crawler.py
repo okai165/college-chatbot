@@ -10,6 +10,7 @@ import re
 # PIPELINE IMPORTS
 # ======================
 from app.crawler.pdf_downloader import download_pdf
+from app.crawler.frontier import URLFrontier
 from app.db.admission_service import save_admission
 from app.db.notice_service import save_notice
 from app.db.fee_service import save_fee_structure
@@ -22,6 +23,7 @@ from app.crawler.intelligence.title_ranker import extract_best_title
 from app.crawler.intelligence.content_extractor import extract_main_content, is_real_page
 from app.crawler.intelligence.document_router import route_document
 from app.crawler.intelligence.fetcher import fetch_html
+from app.crawler.url_normalizer import normalize_url
 from app.crawler.intelligence.llm_cleaner import clean_text_llm
 from app.crawler.title_extractor import extract_document_title
 from app.crawler.gemini_extractor import extract_notification_data
@@ -80,6 +82,7 @@ def download_pdf_with_retry(url, retries=3):
 # ======================
 def process_pdf(title, pdf_url, date=None, parent_url=None):
     try:
+        pdf_url = normalize_url(pdf_url)
         if document_exists(pdf_url):
             log_message("Already in RAG. Skipping.")
             return False
@@ -177,16 +180,21 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
 
         doc_type = map_doc_type(pdf_url, title) or "general"
 
+        # CHECK ONCE BEFORE ANY PROCESSING
+        if document_exists(pdf_url):
+            log_message("Already in RAG. Skipping full document.")
+            return False
+
         chunks = chunk_text(text, chunk_size=400, overlap=80)
 
-        for i, chunk in enumerate(chunks):
+        for i, chunk in enumerate(chunks, start=1):
             save_document(
-                title=f"{title} (chunk {i+1})",
+                title=f"{title} (chunk {i})",
                 date=date,
                 source_url=pdf_url,
                 content=chunk,
                 doc_type=doc_type
-            )
+            )   
 
         category = route_document(title, text)
         log_message(f"CATEGORY: {category}")
@@ -222,6 +230,7 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
 # ======================
 def process_html(title, url, soup):
     try:
+        url = normalize_url(url)
         if not is_real_page(soup):
             log_message("Detected empty shell page → skipping HTML ingestion")
             return False
@@ -236,10 +245,10 @@ def process_html(title, url, soup):
             )
 
         content = re.sub(r"\s+", " ", content).strip()
-
-        if len(content) < 150:
-            log_message("HTML content too small → skipping")
-            return False
+        
+        #if len(content) < 150:
+         #   log_message("HTML content too small → skipping")
+          #  return False
 
         # ---------- Better title extraction ----------
         if not title or len(title.strip()) < 3:
@@ -273,16 +282,13 @@ def process_html(title, url, soup):
 
         doc_type = map_doc_type(url, title) or "general"
 
-        chunks = chunk_text(content, chunk_size=400, overlap=80)
-
-        for i, chunk in enumerate(chunks):
-            save_document(
-                title=f"{title} (chunk {i+1})",
-                date=None,
-                source_url=url,
-                content=chunk,
-                doc_type=doc_type,
-            )
+        save_document(
+            title=title,
+            date=None,
+            source_url=url,
+            content=content,
+            doc_type=doc_type
+        )
 
         save_notice(title, url, content[:3000])
 
@@ -313,34 +319,45 @@ def get_pdf_title(link, file_url):
 # ======================
 # CRAWLER
 # ======================
-def crawl_page(url):
-    url = url.split("#")[0].rstrip("/")
+def crawl_page(url, frontier):
+    url = url = normalize_url(url)
 
-    try:
-        log_message(f"CRAWLING: {url}")
-
-        if is_visited(url):
-            return
-
-        mark_visited(url)
-
-        # continue crawl logic below safely...
-
-    except Exception as e:
-        log_message(f"Crawl error {url}: {e}")
+    # Skip if already crawled successfully
+    if is_visited(url):
+        return
 
     log_message("=" * 60)
     log_message(f"CRAWLING: {url}")
+    success = False
 
     try:
+        # -------------------------------
+        # Handle document URLs
+        # -------------------------------
         if url.lower().endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx")):
-            process_pdf(os.path.basename(url), url)
+
+            success = process_pdf(
+                os.path.basename(url),
+                url
+            )
+
+            if success:
+                mark_visited(url)
+                log_message(f"PDF completed: {url}")
+            else:
+                log_message(f"PDF failed, retry later: {url}")
+
             return
 
+        # -------------------------------
+        # Fetch HTML
+        # -------------------------------
         html = fetch_html(url)
+
         if not html:
             log_message("Empty response → skipping")
             return
+
 
         soup = BeautifulSoup(html, "html.parser")
 
@@ -362,19 +379,28 @@ def crawl_page(url):
         if not title:
             title = os.path.basename(url)
 
-        process_html(title, url, soup)
+        success=process_html(title, url, soup)
 
-        for a in soup.find_all("a", href=True):
-            file_url = urljoin(url, a["href"])
-            if file_url.lower().endswith((".pdf",".doc",".docx",".xls",".xlsx")):
-                process_pdf(get_pdf_title(a, file_url), file_url)
+        if success:
+            mark_visited(url)
+            log_message(f"Marked visited after successful ingestion: {url}")
+        else:
+            log_message(f"Ingestion failed, will retry later: {url}")
 
+        # -------------------------------
+        # Discover new URLs
+        # -------------------------------
         for a in soup.find_all("a", href=True):
-            next_url = urljoin(url, a["href"])
-            next_url = next_url.split("#")[0].rstrip("/")
-            if urlparse(next_url).netloc == urlparse(BASE_URL).netloc:
-                if not is_visited(next_url):
-                    crawl_page(next_url)
+
+            next_url = normalize_url(
+                urljoin(url, a["href"])
+            )
+
+            if urlparse(next_url).netloc != urlparse(BASE_URL).netloc:
+                continue
+
+            if not is_visited(next_url):
+                frontier.add(next_url)
 
     except Exception as e:
         log_message(f"Crawl error {url}: {e}")
@@ -408,5 +434,13 @@ if __name__ == "__main__":
         BASE_URL + "module.php?id=59",
     ]
 
+    frontier = URLFrontier()
+
     for page in START_PAGES:
-        crawl_page(page)
+        frontier.add(normalize_url(page))
+
+    while not frontier.empty():
+
+        url = frontier.pop()
+
+        crawl_page(url, frontier)
