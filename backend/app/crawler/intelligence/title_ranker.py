@@ -6,7 +6,6 @@ BAD_PATTERNS = [
     "program",
     "course",
     "pass out",
-    "department",
     "intake",
     "major/minor",
     "s.no",
@@ -48,9 +47,34 @@ def score_title(t: str) -> int:
         score += 4
 
     # title-like keywords
-    title_keywords = ["admission", "notice", "circular", "result", "fee", "schedule", "exam"]
+    title_keywords = {
+    "admission",
+    "notice",
+    "circular",
+    "result",
+    "fee",
+    "schedule",
+    "exam",
+    "department",
+    "principal",
+    "faculty",
+    "grievance",
+    "library",
+    "hostel",
+    "committee",
+    "iqac",
+    "nirf",
+    "aqar",
+    "scholarship",
+    "placement",
+    "syllabus",
+    "timetable",
+    "calendar",
+    "research",
+    "contact",
+    }
     if any(word in low for word in title_keywords):
-        score += 5
+        score += 8
 
     # boost meaningful length (not too short, not too long)
     word_count = len(t.split())

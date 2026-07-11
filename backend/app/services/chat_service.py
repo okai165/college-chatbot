@@ -8,6 +8,7 @@ from app.rag.keyword_search import keyword_search
 from app.rag.query_analyzer import analyze_query
 from app.rag.subject_aliases import SUBJECT_ALIASES
 from app.crawler.doc_type_mapper import map_doc_type
+from app.services.quick_link_service import search_quick_link
 import time
 import re
 
@@ -191,6 +192,32 @@ def generate_response(user_query, session_id):
 
     if query in ["bye", "goodbye"]:
         return "Goodbye! Have a great day."
+    
+    # =========================
+    # QUICK LINKS
+    # =========================
+    portal_keywords = [
+        "student login",
+        "login portal",
+        "know your timetable",
+        "know your time table",
+        "open timetable",
+        "open time table",
+        "know your roll no",
+        "know your roll number",
+        "roll no portal",
+        "roll number portal"
+    ]
+
+    if any(k in query for k in portal_keywords):
+        quick_link = search_quick_link(user_query)
+
+        if quick_link:
+            return (
+                f"{quick_link.title}\n\n"
+                f"You can access it here:\n"
+                f"{quick_link.url}"
+            )
 
     # =========================
     # INTENT

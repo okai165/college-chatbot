@@ -23,16 +23,15 @@ def get_stats(
             text("""
                 SELECT COUNT(*)
                 FROM sessions
-                WHERE started_at >= NOW() - (:days || ' days')::interval
             """),
-            {"days": days}
         ).scalar()
 
         total_messages = conn.execute(
             text("""
                 SELECT COUNT(*)
                 FROM chat_history
-                WHERE created_at >= NOW() - (:days || ' days')::interval
+                WHERE role = 'user'
+                  AND created_at >= NOW() - (:days || ' days')::interval
             """),
             {"days": days}
         ).scalar()
@@ -42,7 +41,6 @@ def get_stats(
                 SELECT COUNT(*)
                 FROM sessions
                 WHERE last_seen > NOW() - INTERVAL '10 minutes'
-                  AND started_at >= NOW() - (:days || ' days')::interval
             """),
             {"days": days}
         ).scalar()

@@ -19,7 +19,6 @@ from app.db.scholarship_service import save_scholarship
 from app.db.notification_service import save_notification, notification_exists
 from app.rag.admission_ingest import save_document, document_exists
 from app.crawler.doc_type_mapper import map_doc_type
-from app.crawler.intelligence.title_ranker import extract_best_title
 from app.crawler.intelligence.content_extractor import extract_main_content, is_real_page
 from app.crawler.intelligence.document_router import route_document
 from app.crawler.intelligence.fetcher import fetch_html
@@ -27,6 +26,11 @@ from app.crawler.url_normalizer import normalize_url
 from app.crawler.intelligence.llm_cleaner import clean_text_llm
 from app.crawler.title_extractor import extract_document_title
 from app.crawler.gemini_extractor import extract_notification_data
+from app.services.quick_link_service import search_quick_link
+from app.crawler.intelligence.title_ranker import (
+    extract_best_title,
+    score_title,
+)
 
 # ✅ NEW: Persistent state store
 from app.crawler.state_store import init_db, is_visited, mark_visited
@@ -143,13 +147,24 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
 
 
         # Step 2: ranker only refines (NOT overwrite blindly)
+        candidate_score = score_title(title_candidate)
+
         ranked_title = extract_best_title(text, title_candidate)
 
-        if ranked_title and len(ranked_title.strip()) > 8:
-            if len(ranked_title) <= len(title_candidate) * 1.5:
-                title = ranked_title
-            else:
-                title = title_candidate
+        if ranked_title:
+            ranked_score = score_title(ranked_title)
+        else:
+            ranked_score = 0
+
+        print(f"Candidate : {title_candidate} ({candidate_score})")
+        print(f"Ranked    : {ranked_title} ({ranked_score})")
+
+        if (
+            ranked_title
+            and ranked_score > candidate_score
+            and ranked_title.lower() != title_candidate.lower()
+        ):
+            title = ranked_title
         else:
             title = title_candidate
 
@@ -237,15 +252,37 @@ def process_html(title, url, soup):
 
         html = str(soup)
         content = extract_main_content(html)
+        print("="*60)
+        print("Extracted length:", len(content))
+        print(content[:1000])
+        print("="*60)
+        fallback = "\n".join(
+            [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])] +
+            [p.get_text(" ", strip=True) for p in soup.find_all("p")]
+        )
 
-        if not content.strip():
-            content = "\n".join(
-                [h.get_text(strip=True) for h in soup.find_all(["h1", "h2", "h3"])] +
-                [p.get_text(strip=True) for p in soup.find_all("p")]
-            )
+        if len(content.strip()) < 300:
+            content = fallback
+        content = re.sub(r"\r", "", content)
+
+        meaningful_lines = [
+            line.strip()
+            for line in content.split("\n")
+            if len(line.strip()) > 25
+        ]
 
         content = re.sub(r"\s+", " ", content).strip()
-        
+
+        print("Length:", len(content))
+        print("Meaningful lines:", len(meaningful_lines))
+
+        if len(content) < 120:
+            log_message("Skipping tiny HTML page")
+            return False
+
+        if content.strip().lower() == "gallery":
+            log_message("Skipping gallery page")
+            return False
         #if len(content) < 150:
          #   log_message("HTML content too small → skipping")
           #  return False
@@ -267,10 +304,21 @@ def process_html(title, url, soup):
             "module.php",
             "government college for women",
             "gcw",
+            "gallery",
         }
-
         clean_title = re.sub(r"\s+", " ", title).strip().lower()
+        navigation_words = [
+            "gallery",
+            "faculty profile",
+            "notice board",
+            "photo gallery",
+        ]
 
+        hits = sum(word in content.lower() for word in navigation_words)
+
+        if hits >= 2 and len(content) < 500:
+            log_message("Navigation page detected")
+            return False
         if (
             not clean_title
             or clean_title in BAD_TITLES
@@ -281,7 +329,39 @@ def process_html(title, url, soup):
             return False
 
         doc_type = map_doc_type(url, title) or "general"
+        SPECIAL_PAGES = {
+            "student login": [
+                "student login",
+                "login"
+            ],
+            "Know your Roll No": [
+                "know your roll no",
+                "know your roll number",
+                "roll number"
+            ],
+            "Know your Time Table": [
+                "know your timetable",
+                "know your time table",
+                "time table",
+                "timetable",
+                "schedule"
+            ]
+        }
 
+        page = (title + " " + content).lower()
+
+        for page_title, keywords in SPECIAL_PAGES.items():
+            if any(keyword in page for keyword in keywords):
+
+                search_quick_link(
+                    title=page_title,
+                    url=url,
+                    keywords=keywords
+                )
+
+                log_message(f"Saved quick link: {page_title}")
+
+                return True
         save_document(
             title=title,
             date=None,
@@ -360,24 +440,45 @@ def crawl_page(url, frontier):
 
 
         soup = BeautifulSoup(html, "html.parser")
+        print("\n" + "=" * 80)
+        print("URL:", url)
 
-        headings = [
-            h.get_text(" ", strip=True)
-            for h in soup.find_all(["h1", "h2", "h3"])
-        ]
+        print("\nHTML <title>:")
+        print(soup.title.get_text(strip=True) if soup.title else "None")
 
-        title = ""
+        print("\nH1 / H2 / H3 Tags:")
 
-        for h in headings:
-            if len(h) > 5:
-                title = h
-                break
+        for tag in soup.find_all(["h1", "h2", "h3"]):
+            print(f"{tag.name}: {tag.get_text(' ', strip=True)}")
 
-        if not title and soup.title:
-            title = soup.title.get_text(strip=True)
+        print("=" * 80 + "\n")
 
-        if not title:
-            title = os.path.basename(url)
+        raw_text = extract_main_content(html)
+
+        print("=" * 60)
+        print(raw_text[:1200])
+        print("=" * 60)
+
+        # Default title from <title>
+        candidate_title = ""
+        if soup.title:
+            candidate_title = soup.title.get_text(" ", strip=True)
+
+        # Prefer H1 if it is better
+        h1 = soup.find("h1")
+        if h1:
+            h1_title = h1.get_text(" ", strip=True)
+
+            if (
+                h1_title
+                and score_title(h1_title) >= score_title(candidate_title)
+            ):
+                candidate_title = h1_title
+
+        # Final title
+        title = candidate_title or os.path.basename(url)
+
+        print("Final HTML Title:", title)
 
         success=process_html(title, url, soup)
 
@@ -416,22 +517,22 @@ if __name__ == "__main__":
 
     START_PAGES = [
         BASE_URL,
-        BASE_URL + "admissions.php",
+        #BASE_URL + "admissions.php",
         BASE_URL + "module.php?id=52",
-        BASE_URL + "module.php?id=47",
-        BASE_URL + "module.php?id=53",
-        BASE_URL + "module.php?id=21",
-        BASE_URL + "module.php?id=50",
-        BASE_URL + "module.php?id=51",
-        BASE_URL + "module.php?id=54",
-        BASE_URL + "module.php?id=48",
-        BASE_URL + "module.php?id=49",
-        BASE_URL + "grievances.php",
-        BASE_URL + "departments.php?id=40",
-        BASE_URL + "Syllabus/Index/True?pp=UG",
-        BASE_URL + "module.php?id=57",
-        BASE_URL + "iqac.php",
-        BASE_URL + "module.php?id=59",
+        #BASE_URL + "module.php?id=47",
+        #BASE_URL + "module.php?id=53",
+        #BASE_URL + "module.php?id=21",
+        #BASE_URL + "module.php?id=50",
+        #BASE_URL + "module.php?id=51",
+        #BASE_URL + "module.php?id=54",
+        #BASE_URL + "module.php?id=48",
+        #BASE_URL + "module.php?id=49",
+        #BASE_URL + "grievances.php",
+        #BASE_URL + "departments.php?id=40",
+        #BASE_URL + "Syllabus/Index/True?pp=UG",
+        #BASE_URL + "module.php?id=57",
+        #BASE_URL + "iqac.php",
+        #BASE_URL + "module.php?id=59",
     ]
 
     frontier = URLFrontier()
