@@ -1,0 +1,96 @@
+.info-card{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    background:white;
+
+    border-radius:12px;
+
+    padding:20px;
+
+    margin-bottom:18px;
+
+    border:1px solid #e2e8f0;
+
+    transition:.25s;
+
+}
+
+.info-card:hover{
+
+    transform:translateY(-3px);
+
+    box-shadow:0 10px 25px rgba(0,0,0,.08);
+
+}
+
+.info-content{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:10px;
+
+}
+
+.info-content h3{
+
+    margin:0;
+
+    color:#0f172a;
+
+}
+
+.badge{
+
+    width:max-content;
+
+    background:#2563eb;
+
+    color:white;
+
+    padding:5px 12px;
+
+    border-radius:20px;
+
+    font-size:13px;
+
+}
+
+.open-btn{
+
+    background:#2563eb;
+
+    color:white;
+
+    text-decoration:none;
+
+    padding:10px 18px;
+
+    border-radius:8px;
+
+    font-weight:600;
+
+}
+
+.open-btn:hover{
+
+    background:#1d4ed8;
+
+}
+.summary{
+
+    margin:12px 0;
+
+    color:#555;
+
+    line-height:1.6;
+
+    font-size:14px;
+
+}

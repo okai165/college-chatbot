@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "../components/AdminLayout";
 
 function FacultyManager() {
-
+  
   const [faculty, setFaculty] = useState([]);
 
   const [formData, setFormData] = useState({
@@ -11,18 +11,42 @@ function FacultyManager() {
     time_slot: "",
     room_number: ""
   });
-
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
   const [editingId, setEditingId] = useState(null);
-
   // =========================
-  // FETCH FACULTY
+  // FETCH DEPARTMENTS
   // =========================
-  const fetchFaculty = async () => {
+  const fetchDepartments = async () => {
 
     try {
 
       const res = await fetch(
-        "http://127.0.0.1:8000/faculty"
+        "http://127.0.0.1:8000/departments"
+      );
+
+      const data = await res.json();
+
+      setDepartments(data);
+
+    } catch (err) {
+
+      console.log(err);
+
+    }
+
+  };
+  // =========================
+  // FETCH FACULTY
+  // =========================
+  const fetchFaculty = async (departmentId) => {
+
+    if (!departmentId) return;
+
+    try {
+
+      const res = await fetch(
+        `http://127.0.0.1:8000/faculty?department_id=${departmentId}`
       );
 
       const data = await res.json();
@@ -32,12 +56,14 @@ function FacultyManager() {
     } catch (err) {
 
       console.log(err);
+
     }
+
   };
 
   useEffect(() => {
 
-    fetchFaculty();
+    fetchDepartments();
 
   }, []);
 
@@ -56,7 +82,10 @@ function FacultyManager() {
   // ADD OR UPDATE
   // =========================
   const handleSubmit = async () => {
-
+    if (!selectedDepartment) {
+      alert("Please select a department first.");
+      return;
+    }
     try {
 
       // UPDATE
@@ -85,7 +114,10 @@ function FacultyManager() {
             headers: {
               "Content-Type": "application/json"
             },
-            body: JSON.stringify(formData)
+            body: JSON.stringify({
+              ...formData,
+              department_id: selectedDepartment
+            })
           }
         );
       }
@@ -100,7 +132,7 @@ function FacultyManager() {
 
       setEditingId(null);
 
-      fetchFaculty();
+      fetchFaculty(selectedDepartment);
 
     } catch (err) {
 
@@ -122,7 +154,7 @@ function FacultyManager() {
         }
       );
 
-      fetchFaculty();
+      fetchFaculty(selectedDepartment);
 
     } catch (err) {
 
@@ -151,106 +183,153 @@ function FacultyManager() {
 
       <h1 style={titleStyle}>Faculty Management</h1>
 
-      {/* ================= FORM ================= */}
-
-      <div style={formStyle}>
-
-        <input
-          name="faculty_name"
-          placeholder="Faculty Name"
-          value={formData.faculty_name}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-
-        <input
-          name="subject_name"
-          placeholder="Subject"
-          value={formData.subject_name}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-
-        <input
-          name="time_slot"
-          placeholder="Time Slot"
-          value={formData.time_slot}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-
-        <input
-          name="room_number"
-          placeholder="Room / Lab (Optional)"
-          value={formData.room_number}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-
-        <button
-          onClick={handleSubmit}
-          style={buttonStyle}
+      <select
+          value={selectedDepartment}
+          onChange={(e) => {
+            const id = e.target.value;
+            setSelectedDepartment(id);
+            fetchFaculty(id);
+          }}
+          style={selectStyle}
         >
-          {editingId ? "Update Faculty" : "Add Faculty"}
-        </button>
+          <option value="">Select Department</option>
 
-      </div>
-
-      {/* ================= TABLE ================= */}
-
-      <table style={tableStyle}>
-
-        <thead>
-
-          <tr>
-            <th>Faculty</th>
-            <th>Subject</th>
-            <th>Time Slot</th>
-            <th>Room</th>
-            <th>Actions</th>
-          </tr>
-
-        </thead>
-
-        <tbody>
-
-          {faculty.map((item) => (
-
-            <tr key={item.id}>
-
-              <td>{item.faculty_name}</td>
-
-              <td>{item.subject_name}</td>
-
-              <td>{item.time_slot}</td>
-
-              <td>{item.room_number || "-"}</td>
-
-              <td>
-
-                <button
-                  onClick={() => editFaculty(item)}
-                  style={editButton}
-                >
-                  Edit
-                </button>
-
-                <button
-                  onClick={() => deleteFaculty(item.id)}
-                  style={deleteButton}
-                >
-                  Delete
-                </button>
-
-              </td>
-
-            </tr>
+          {departments.map((dept) => (
+            <option key={dept.id} value={dept.id}>
+              {dept.department_name}
+            </option>
           ))}
+      </select>
 
-        </tbody>
+      {/* Show only after department selection */}
 
-      </table>
+      {selectedDepartment && (
+          <div style={formStyle}>
 
+            <input
+              name="faculty_name"
+              placeholder="Faculty Name"
+              value={formData.faculty_name}
+              onChange={handleChange}
+              style={inputStyle}
+            />
+
+            <input
+              name="subject_name"
+              placeholder="Subject"
+              value={formData.subject_name}
+              onChange={handleChange}
+              style={inputStyle}
+            />
+
+            <input
+              name="time_slot"
+              placeholder="Time Slot"
+              value={formData.time_slot}
+              onChange={handleChange}
+              style={inputStyle}
+            />
+
+            <input
+              name="room_number"
+              placeholder="Room / Lab"
+              value={formData.room_number}
+              onChange={handleChange}
+              style={inputStyle}
+            />
+
+            <button
+              onClick={handleSubmit}
+              style={buttonStyle}
+            >
+              {editingId ? "Update Faculty" : "Add Faculty"}
+            </button>
+
+          </div>
+      )}
+
+      {/* Show table only after department selection */}
+
+      {selectedDepartment && (
+        <table style={tableStyle}>
+
+            <thead>
+              <tr style={{
+                      background: "#f8fafc",
+                      height: "55px"
+                  }}
+              >
+                <th>Faculty</th>
+                <th>Subject</th>
+                <th>Time Slot</th>
+                <th>Room</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              {faculty.map((item) => (
+
+                <tr key={item.id}>
+
+                  <td style={{
+                          padding: "18px",
+                          textAlign: "center",
+                          borderBottom: "1px solid #e5e7eb"
+                      }}
+                  >{item.faculty_name}</td>
+                  <td style={{
+                          padding: "18px",
+                          textAlign: "center",
+                          borderBottom: "1px solid #e5e7eb"
+                      }}
+                  >{item.subject_name}</td>
+                  <td style={{
+                          padding: "18px",
+                          textAlign: "center",
+                          borderBottom: "1px solid #e5e7eb"
+                      }}
+                  >{item.time_slot}</td>
+                  <td style={{
+                          padding: "18px",
+                          textAlign: "center",
+                          borderBottom: "1px solid #e5e7eb"
+                      }}
+                  >{item.room_number || "-"}</td>
+
+                  <td style={{
+                          padding: "18px",
+                          textAlign: "center",
+                          borderBottom: "1px solid #e5e7eb"
+                      }} 
+                  >
+
+                    <button
+                      onClick={() => editFaculty(item)}
+                      style={editButton}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      onClick={() => deleteFaculty(item.id)}
+                      style={deleteButton}
+                    >
+                      Delete
+                    </button>
+
+                  </td>
+
+                </tr>
+
+              ))}
+
+            </tbody>
+
+        </table>
+      )}
+      
       </div>
     </AdminLayout>
   );
@@ -260,52 +339,59 @@ function FacultyManager() {
 // =========================
 // STYLES
 // =========================
-
 const formStyle = {
+  background: "#fff",
+  borderRadius: "12px",
+  padding: "25px",
   display: "grid",
-  gap: "15px",
-  background: "white",
-  padding: "20px",
-  borderRadius: "10px",
-  marginTop: "20px"
+  gap: "18px",
+  marginBottom: "35px",
+  boxShadow: "0 2px 10px rgba(172, 197, 182, 0.08)"
 };
 
 const inputStyle = {
-  padding: "10px",
-  borderRadius: "6px",
-  border: "1px solid #ccc",
-  fontSize: "14px",
-  background: "white",
-  color: "#0f172a"
+   width: "100%",
+  padding: "14px",
+  borderRadius: "8px",
+  border: "1px solid #cbd5e1",
+  backgroundColor: "#eff6ff",   // Light blue
+  color: "#0f172a",
+  fontSize: "15px",
+  outline: "none",
+  boxSizing: "border-box"
 };
 
 const pageStyle = {
-  padding: "20px"
+  padding: "35px",
+  maxWidth: "1100px",
+  margin: "0 auto"
 };
 
 const titleStyle = {
-  marginBottom: "20px",
+  fontSize: "48px",
+  fontWeight: "700",
+  marginBottom: "25px",
   color: "#0f172a"
 };
 
 const buttonStyle = {
-  padding: "12px",
+  padding: "14px",
+  borderRadius: "8px",
   background: "#2563eb",
-  color: "white",
+  color: "#fff",
   border: "none",
-  borderRadius: "6px",
-  cursor: "pointer"
+  cursor: "pointer",
+  fontSize: "16px",
+  fontWeight: "600"
 };
 
 const tableStyle = {
   width: "100%",
-  marginTop: "30px",
-  background: "white",
-  color: "#1e293b",
-  borderCollapse: "collapse",
-  borderRadius: "10px",
+  background: "#fff",
+  borderRadius: "12px",
   overflow: "hidden",
-  border: "1px solid #e2e8f0"
+  borderCollapse: "collapse",
+  boxShadow: "0 2px 10px rgba(0,0,0,.08)"
 };
 
 const editButton = {
@@ -326,5 +412,15 @@ const deleteButton = {
   borderRadius: "4px",
   cursor: "pointer"
 };
-
+const selectStyle = {
+  width: "420px",
+  padding: "12px",
+  marginBottom: "25px",
+  borderRadius: "8px",
+  border: "1px solid #d1d5db",
+  fontSize: "16px",
+  backgroundColor: "#ffffff",
+  color: "#0f172a",
+  outline: "none"
+};
 export default FacultyManager;

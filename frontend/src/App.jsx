@@ -29,6 +29,11 @@ import FeeStructurePage from "./pages/FeeStructurePage";
 import DocumentChecklistPage from "./pages/DocumentChecklistPage";
 import AvailableCoursesPage from "./pages/AvailableCoursesPage";
 import AdmissionCommitteePage from "./pages/AdmissionCommitteePage";
+import LatestNoticesPage from "./pages/LatestNoticesPage";
+import AcademicCalendarPage from "./pages/AcademicCalendarPage";
+import DocumentLibraryPage from "./pages/DocumentLibraryPage";
+import EventsPage from "./pages/EventsPage";
+import api from "./services/api";
 import "./styles/cards.css";
 import "./styles/hero.css";
 import "./styles/home.css";
@@ -42,7 +47,7 @@ function ChatWidget() {
 
   // const [chatOpen, setChatOpen] = useState(false);
 
-  const [selectedCard, setSelectedCard] = useState(null);
+  // const [selectedCard, setSelectedCard] = useState(null);
 
   // const [sidebarOpen, setSidebarOpen] =
   //   useState(window.innerWidth > 768);
@@ -103,88 +108,46 @@ function ChatWidget() {
   // =========================
   // SAVE TO LOCAL STORAGE
   // =========================
-  const cardQuestions = {
-    Scholarships: "Tell me about scholarships.",
-    Examinations: "Tell me about examinations.",
-    Notices: "Show latest notices.",
-    "Academic Calendar": "Show academic calendar.",
-    "Document Library": "Show available documents.",
-    "Forms & Downloads": "Show available forms.",
-    "Faculty Directory": "Show faculty information.",
-    "Department Directory": "Show department information.",
-    "Campus Facilities": "Show campus facilities.",
-    "Events & Workshops": "Show recent events and workshops.",
-    FAQ: "Show frequently asked questions.",
-    "Contact Us": "Show college contact information.",
-    "Multilingual Support": "Can you answer questions in different languages?",
-    "Smart Search": "Help me search college information.",
-    "AI Recommendations": "Recommend useful information for a new student."
-  };
-  const navigate = useNavigate();
+    const navigate = useNavigate();
   const [pendingQuestion, setPendingQuestion] = useState(null);
-  const handleCardClick = (title) => {
-    console.log("Clicked:", title);
-    switch (title) {
-    
-      // =========================
-      // OPEN PAGES
-      // =========================
+  const handleCardClick = async (card) => {
 
-      case "Admission Updates":
-        navigate("/admission-updates");
-        return;
+      console.log(card);
 
-      case "Activity Schedule":
-        navigate("/activity-schedule");
-        return;
+      switch (card.type) {
 
-      case "Eligibility Criteria":
-        navigate("/eligibility");
-        return;
+          case "page":
 
-      case "Fee Structure":
-        navigate("/fee-structure");
-        return;
+              navigate(card.route);
 
-      case "Document Checklist":
-        navigate("/document-checklist");
-        return;
+              break;
 
-      case "Available Courses":
-        navigate("/available-courses");
-        return;
+          case "chat":
 
-      case "Admission Committee":
-        navigate("/admission-committee");
-        return;
+              setChatVisible(true);
 
-      // =========================
-      // SPECIAL CARDS
-      // =========================
+              setPendingQuestion(card.question);
 
-      case "Chat History":
-        // navigate("/chat-history");
-        alert("Chat History page coming soon.");
-        return;
+              break;
 
-      case "Saved Answers":
-        // navigate("/saved-answers");
-        alert("Saved Answers page coming soon.");
-        return;
+          case "api":
 
-      case "Voice Assistant":
-        setChatVisible(true);
-        // startVoiceInput();
-        return;
+              alert(`${card.title} API will be connected in the next step.`);
 
-      // =========================
-      // DEFAULT → CHATBOT
-      // =========================
+              break;
 
-      default:
-        setChatVisible(true);
-        setPendingQuestion(cardQuestions[title] || `Tell me about ${title}`);
-    }
+          case "upcoming":
+
+              alert(`${card.title} is coming soon 🚀`);
+
+              break;
+
+          default:
+
+              console.warn("Unknown card type", card);
+
+      }
+
   };
   useEffect(() => {
     if (chatVisible && pendingQuestion) {
@@ -332,31 +295,14 @@ function ChatWidget() {
 
       try {
 
-        const res =
-          await fetch(
-            "http://127.0.0.1:8000/chat",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-
-              body: JSON.stringify({
-                message: userMsg,
-                session_id:
-                  currentChatId
-              })
-            }
-          );
-
-        const data =
-          await res.json();
+        const { data } = await api.post("/chat", {
+            message: userMsg,
+            session_id: currentChatId,
+        });
 
         const aiText =
-          data.response ||
-          "No response received";
+            data.response ||
+            "No response received";
 
         typeMessage(
           aiText,
@@ -1201,7 +1147,24 @@ export default function App() {
         path="/admission-committee"
         element={<AdmissionCommitteePage />}
       />
+      <Route
+        path="/latest-notices"
+        element={<LatestNoticesPage />}
+      />
+      <Route
+          path="/academic-calendar"
+          element={<AcademicCalendarPage />}
+      />
 
+      <Route
+          path="/document-library"
+          element={<DocumentLibraryPage />}
+      />
+
+      <Route
+          path="/events"
+          element={<EventsPage />}
+      />
     </Routes>
 
   );

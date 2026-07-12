@@ -1,34 +1,37 @@
 import FeatureCard from "./FeatureCard";
 
-function FeatureSection({
-  title,
-  cards,
-  onCardClick
-}) {
-
+function FeatureSection({ title, cards, onCardClick }) {
   return (
-    <section className="section">
+    <div style={{ marginBottom: "20px", padding: "0 16px" }}>
+      <h3
+        style={{
+          marginBottom: "12px",
+          color: "#1e293b",
+          fontSize: "18px",
+          borderBottom: "1px solid #334155",
+          paddingBottom: "6px",
+        }}
+      >
+        {title}
+      </h3>
 
-      <h2>{title}</h2>
-
-      <div className="cards-grid">
-
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+        }}
+      >
         {cards.map((card) => (
-
           <FeatureCard
-            key={card.title}
+            key={card.id}
             title={card.title}
             icon={card.icon}
-            onClick={() =>
-              onCardClick(card.title)
-            }
+            onClick={() => onCardClick(card)}
           />
-
         ))}
-
       </div>
-
-    </section>
+    </div>
   );
 }
 

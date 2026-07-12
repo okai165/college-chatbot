@@ -11,6 +11,9 @@ from app.routes.chat import router as chat_router
 from app.routes.notifications import router as notifications_router
 from app.crawler.scheduler import start_scheduler
 from app.routes.admissions import router as admissions_router
+from app.routes.notices import router as notices_router
+from app.routes.admission_updates import router as admission_updates_router
+from app.routes import fee
 print("LLM_API_KEY:", os.getenv("LLM_API_KEY"))
 
 app = FastAPI()
@@ -37,3 +40,6 @@ app.include_router(
     tags=["notifications"]
 )
 app.include_router(admissions_router)
+app.include_router(notices_router)
+app.include_router(admission_updates_router)
+app.include_router(fee.router)

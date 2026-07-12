@@ -1,24 +1,18 @@
-import { useNavigate } from "react-router-dom";
+import DataPage from "../components/DataPage";
+import { getAdmissionUpdates } from "../services/api";
 
-export default function AdmissionUpdatesPage() {
+function AdmissionUpdatesPage() {
 
-  const navigate = useNavigate();
+    return (
 
-  return (
-    <div className="page-container">
+        <DataPage
+            title="Admission Updates"
+            subtitle="Latest admission notifications published by the college"
+            fetchFunction={getAdmissionUpdates}
+        />
 
-      <button
-        onClick={() => navigate("/")}
-      >
-        ← Back
-      </button>
+    );
 
-      <h1>Admission Updates</h1>
-
-      <p>
-        Admission notifications will appear here.
-      </p>
-
-    </div>
-  );
 }
+
+export default AdmissionUpdatesPage;
