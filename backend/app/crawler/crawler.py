@@ -276,10 +276,26 @@ def process_html(title, url, soup):
         print("Length:", len(content))
         print("Meaningful lines:", len(meaningful_lines))
 
-        if len(content) < 120:
-            log_message("Skipping tiny HTML page")
-            return False
+        if len(content) < 10:
 
+            fallback = "\n".join(
+
+                [
+                    h.get_text(" ", strip=True)
+                    for h in soup.find_all(["h1","h2","h3"])
+                ]
+                +
+                [
+                    p.get_text(" ", strip=True)
+                    for p in soup.find_all("p")
+                ]
+            )
+
+            if len(fallback) > 120:
+                content = fallback
+            else:
+                log_message("Skipping tiny HTML page")
+                return False
         if content.strip().lower() == "gallery":
             log_message("Skipping gallery page")
             return False

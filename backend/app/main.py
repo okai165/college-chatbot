@@ -14,6 +14,8 @@ from app.routes.admissions import router as admissions_router
 from app.routes.notices import router as notices_router
 from app.routes.admission_updates import router as admission_updates_router
 from app.routes import fee
+from app.routes import courses
+from app.routes import academic_calendar
 print("LLM_API_KEY:", os.getenv("LLM_API_KEY"))
 
 app = FastAPI()
@@ -43,3 +45,5 @@ app.include_router(admissions_router)
 app.include_router(notices_router)
 app.include_router(admission_updates_router)
 app.include_router(fee.router)
+app.include_router(courses.router)
+app.include_router(academic_calendar.router)

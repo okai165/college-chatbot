@@ -25,6 +25,14 @@ export async function getFeeStructure() {
     return data;
 
 }
+//   available courses
+export async function getAvailableCourses(){
+
+    const {data} = await api.get("/available-courses");
+
+    return data;
+
+}
 // --------------------
 // Notices
 // --------------------
