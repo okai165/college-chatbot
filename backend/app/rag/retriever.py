@@ -56,16 +56,17 @@ def retrieve_similar_chunks(query: str, semester: str = None, exam_type: str = N
             SIMILARITY_THRESHOLD = 1.3
             rows = [r for r in rows if r.distance < SIMILARITY_THRESHOLD]
             rows = sorted(rows, key=lambda x: x.distance)[:5]
-            print("\n========== RETRIEVED DOCUMENTS ==========\n")
-            for row in rows:
-                print("DOCUMENT:", row.document_name)
-                print("SEMESTER:", row.semester)
-                print("EXAM TYPE:", row.exam_type)
-                print("DOC TYPE:", row.doc_type)
-                print("DISTANCE:", row.distance)
-                print("CONTENT:")
-                print(row.content[:500])
-                print("=" * 100)
+            print("\n========== RETRIEVED CHUNKS ==========\n")
+
+            for i, row in enumerate(rows, 1):
+                print(f"\nChunk {i}")
+                print("=" * 80)
+                print("DOCUMENT :", row.document_name)
+                print("DOC TYPE :", row.doc_type)
+                print("DISTANCE :", row.distance)
+                print("-" * 80)
+                print(row.content)      # Print the entire chunk
+                print("=" * 80)
 
             if not rows:
                 return []

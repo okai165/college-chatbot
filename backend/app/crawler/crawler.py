@@ -26,7 +26,7 @@ from app.crawler.url_normalizer import normalize_url
 from app.crawler.intelligence.llm_cleaner import clean_text_llm
 from app.crawler.title_extractor import extract_document_title
 from app.crawler.gemini_extractor import extract_notification_data
-from app.services.quick_link_service import search_quick_link
+from app.services.quick_link_service import save_quick_link
 from app.crawler.dynamic_module_crawler import fetch_department_profile
 from app.crawler.dynamic_module_crawler import load_dynamic_content
 from app.crawler.intelligence.title_ranker import (
@@ -195,8 +195,14 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
         except Exception as e:
             log_message(f"LLM cleaning skipped: {e}")
 
-        doc_type = map_doc_type(pdf_url, title) or "general"
-
+        doc_type = map_doc_type(
+            pdf_url,
+            title,
+            text
+        )
+        log_message(
+            f"DOCTYPE: {doc_type} | TITLE: {title}"
+        )
         # CHECK ONCE BEFORE ANY PROCESSING
         if document_exists(pdf_url):
             log_message("Already in RAG. Skipping full document.")
@@ -222,8 +228,12 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
             save_fee_structure(title, pdf_url, text[:3000])
         elif category == "scholarship":
             save_scholarship(title, pdf_url, text[:3000])
-        else:
-            save_notice(title, pdf_url, text[:3000])
+        elif category == "notice":
+            save_notice(
+                title,
+                pdf_url,
+                text[:3000]
+            )
 
         if not notification_exists(pdf_url):
             try:
@@ -273,10 +283,12 @@ def process_html(title, url, soup):
 
         except Exception as e:
             log_message(f"Dynamic extraction failed: {e}")
-        print("="*60)
-        print("Extracted length:", len(content))
-        print(content[:1000])
-        print("="*60)
+        print("=" * 80)
+        print("URL:", url)
+        print("TITLE:", title)
+        print("EXTRACTED CONTENT:")
+        print(content)
+        print("=" * 80)
         fallback = "\n".join(
             [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])] +
             [p.get_text(" ", strip=True) for p in soup.find_all("p")]
@@ -365,7 +377,14 @@ def process_html(title, url, soup):
             log_message(f"Skipping HTML page because title is invalid: '{title}'")
             return False
 
-        doc_type = map_doc_type(url, title) or "general"
+        doc_type = map_doc_type(
+            url,
+            title,
+            content
+        )
+        log_message(
+            f"DOCTYPE: {doc_type} | TITLE: {title}"
+        )
         SPECIAL_PAGES = {
             "student login": [
                 "student login",
@@ -390,15 +409,16 @@ def process_html(title, url, soup):
         for page_title, keywords in SPECIAL_PAGES.items():
             if any(keyword in page for keyword in keywords):
 
-                search_quick_link(
+                save_quick_link(
                     title=page_title,
                     url=url,
-                    keywords=keywords
+                    keywords=keywords,
+                    description=page_title,
                 )
 
                 log_message(f"Saved quick link: {page_title}")
 
-                return True
+                break
         save_document(
             title=title,
             date=None,
@@ -407,7 +427,12 @@ def process_html(title, url, soup):
             doc_type=doc_type
         )
 
-        save_notice(title, url, content[:3000])
+        if doc_type == "notice":
+            save_notice(
+                title,
+                url,
+                content[:3000]
+            )
 
         return True
 
