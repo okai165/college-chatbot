@@ -27,6 +27,8 @@ from app.crawler.intelligence.llm_cleaner import clean_text_llm
 from app.crawler.title_extractor import extract_document_title
 from app.crawler.gemini_extractor import extract_notification_data
 from app.services.quick_link_service import search_quick_link
+from app.crawler.dynamic_module_crawler import fetch_department_profile
+from app.crawler.dynamic_module_crawler import load_dynamic_content
 from app.crawler.intelligence.title_ranker import (
     extract_best_title,
     score_title,
@@ -252,6 +254,25 @@ def process_html(title, url, soup):
 
         html = str(soup)
         content = extract_main_content(html)
+
+        # -----------------------------------------
+        # Dynamic page extraction (modules + departments)
+        # -----------------------------------------
+        try:
+
+            dynamic = load_dynamic_content(html)
+
+            if dynamic:
+
+                title = dynamic["title"]
+                content = dynamic["content"]
+
+                log_message(
+                    f"Loaded dynamic content ({len(content)} chars)"
+                )
+
+        except Exception as e:
+            log_message(f"Dynamic extraction failed: {e}")
         print("="*60)
         print("Extracted length:", len(content))
         print(content[:1000])
