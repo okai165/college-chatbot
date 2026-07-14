@@ -17,6 +17,15 @@ export async function getAdmissionUpdates() {
     return data;
 
 }
+//eligibility 
+export async function getEligibility() {
+
+    const { data } =
+        await api.get("/eligibility");
+
+    return data;
+
+}
 // fee
 export async function getFeeStructure() {
 

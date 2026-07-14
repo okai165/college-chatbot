@@ -9,8 +9,7 @@ from app.crawler.pdf_parser import parse_notice_metadata
 # ==========================
 def document_exists(source_url):
     """
-    Check if document already exists (ANY chunk).
-    We treat source_url as the document identity.
+    Fast check: if ANY chunk exists, treat document as already ingested.
     """
     with engine.connect() as conn:
         result = conn.execute(
@@ -65,10 +64,11 @@ def save_document(
         print("DOC TYPE:", doc_type)
         print("SOURCE:", source_url)
 
-        # (Optional) duplicate prevention
-        # You can keep this OR rely on DB constraint
+        # ======================================================
+        # ✅ FIX 1: GLOBAL DOCUMENT GUARD (VERY IMPORTANT)
+        # ======================================================
         if document_exists(source_url):
-            print("Skipping (already exists):", source_url)
+            print(f"Skipping document (already exists): {source_url}")
             return
 
         metadata = {}
@@ -76,7 +76,7 @@ def save_document(
         if doc_type == "admission":
             metadata = parse_notice_metadata(content)
 
-        chunks = chunk_text(content)
+        chunks = chunk_text(content, chunk_size=400, overlap=80)
         print(f"Created {len(chunks)} chunks")
 
         source_type = (
@@ -108,58 +108,67 @@ CONTENT:
                 embedding = generate_embedding(full_text)
                 embedding_str = "[" + ",".join(map(str, embedding)) + "]"
 
-                conn.execute(
-                    text("""
-                        INSERT INTO documents
-                        (
-                            content,
-                            embedding,
-                            source_url,
-                            source_title,
-                            source_type,
-                            document_name,
-                            doc_type,
-                            semester,
-                            exam_type,
-                            batch,
-                            issued_date,
-                            chunk_index
-                        )
-                        VALUES
-                        (
-                            :content,
-                            CAST(:embedding AS vector),
-                            :source_url,
-                            :source_title,
-                            :source_type,
-                            :document_name,
-                            :doc_type,
-                            :semester,
-                            :exam_type,
-                            :batch,
-                            :issued_date,
-                            :chunk_index
-                        )
-                        ON CONFLICT (source_url, chunk_index)
-                        DO NOTHING
-                    """),
-                    {
-                        "content": full_text,
-                        "embedding": embedding_str,
-                        "source_url": source_url,
-                        "source_title": title,
-                        "source_type": source_type,
-                        "document_name": title,
-                        "doc_type": doc_type,
-                        "semester": metadata.get("semester"),
-                        "exam_type": metadata.get("exam_type"),
-                        "batch": metadata.get("batch"),
-                        "issued_date": metadata.get("issued_date") or date,
-                        "chunk_index": i
-                    }
-                )
+                # ======================================================
+                # ❌ FIX 2: REMOVE per-chunk SELECT (UNNECESSARY LOAD)
+                # Instead rely on chunk_index uniqueness OR DB constraint
+                # ======================================================
 
-        print(f"Successfully saved {len(chunks)} chunks for '{title}'")
+                try:
+                    conn.execute(
+                        text("""
+                            INSERT INTO documents
+                            (
+                                content,
+                                embedding,
+                                source_url,
+                                source_title,
+                                source_type,
+                                document_name,
+                                doc_type,
+                                semester,
+                                exam_type,
+                                batch,
+                                issued_date,
+                                chunk_index
+                            )
+                            VALUES
+                            (
+                                :content,
+                                CAST(:embedding AS vector),
+                                :source_url,
+                                :source_title,
+                                :source_type,
+                                :document_name,
+                                :doc_type,
+                                :semester,
+                                :exam_type,
+                                :batch,
+                                :issued_date,
+                                :chunk_index
+                            )
+                        """),
+                        {
+                            "content": full_text,
+                            "embedding": embedding_str,
+                            "source_url": source_url,
+                            "source_title": title,
+                            "source_type": source_type,
+                            "document_name": title,
+                            "doc_type": doc_type,
+                            "semester": metadata.get("semester"),
+                            "exam_type": metadata.get("exam_type"),
+                            "batch": metadata.get("batch"),
+                            "issued_date": metadata.get("issued_date") or date,
+                            "chunk_index": i
+                        }
+                    )
+
+                except Exception as insert_error:
+                    # Safety fallback (prevents crash on duplicate chunk inserts)
+                    print(f"Skipping chunk {i} due to DB constraint: {insert_error}")
+                    continue
+
+        print(f"Successfully saved chunks for '{title}'")
 
     except Exception as e:
         print("DOCUMENT SAVE ERROR:", e)

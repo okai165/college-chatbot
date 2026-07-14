@@ -33,6 +33,7 @@ import LatestNoticesPage from "./pages/LatestNoticesPage";
 import AcademicCalendarPage from "./pages/AcademicCalendarPage";
 import DocumentLibraryPage from "./pages/DocumentLibraryPage";
 import EventsPage from "./pages/EventsPage";
+import StaticPopup from "./components/StaticPopup";
 import api from "./services/api";
 import "./styles/cards.css";
 import "./styles/hero.css";
@@ -110,6 +111,7 @@ function ChatWidget() {
   // =========================
     const navigate = useNavigate();
   const [pendingQuestion, setPendingQuestion] = useState(null);
+  const [selectedStaticCard, setSelectedStaticCard] = useState(null);
   const handleCardClick = async (card) => {
 
       console.log(card);
@@ -133,6 +135,12 @@ function ChatWidget() {
           case "api":
 
               alert(`${card.title} API will be connected in the next step.`);
+
+              break;
+
+          case "static":
+
+              setSelectedStaticCard(card);
 
               break;
 
@@ -560,6 +568,14 @@ function ChatWidget() {
 
   return (
   <div className="app-layout">
+     {selectedStaticCard && (
+        <StaticPopup
+            selectedStaticCard={selectedStaticCard}
+            closePopup={() =>
+                setSelectedStaticCard(null)
+            }
+        />
+      )}
     {sidebarOpen ? (
 
         <aside className="sidebar">

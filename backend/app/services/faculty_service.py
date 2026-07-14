@@ -83,7 +83,7 @@ def search_faculty(query):
                     faculty_name,
                     subject_name,
                     time_slot,
-                    room_number
+                    room_number,
                 FROM faculty_schedule
                 WHERE
                     LOWER(TRIM(subject_name)) LIKE :q

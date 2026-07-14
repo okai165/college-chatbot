@@ -29,11 +29,14 @@ from app.crawler.gemini_extractor import extract_notification_data
 from app.services.quick_link_service import save_quick_link
 from app.crawler.dynamic_module_crawler import fetch_department_profile
 from app.crawler.dynamic_module_crawler import load_dynamic_content
+from app.crawler.intelligence.pdf_title_extractor import extract_pdf_title
 from app.crawler.intelligence.title_ranker import (
     extract_best_title,
     score_title,
 )
-
+from app.db.admission_service import save_admission
+from app.db.activity_schedule_service import save_activity_schedule
+from app.db.eligibility_service import save_eligibility
 # ✅ NEW: Persistent state store
 from app.crawler.state_store import init_db, is_visited, mark_visited
 
@@ -135,17 +138,25 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
             return True
 
 
-        llm_title = extract_document_title(
-            text=text,
-            fallback_title=base_title,
-            filename=filename
+        rule_title, confidence = extract_pdf_title(
+            text,
+            base_title
         )
 
-        # Step 1: decide candidate title
-        if is_safe_llm_title(llm_title):
-            title_candidate = llm_title
+        if confidence >= 20:
+            title_candidate = rule_title
+            llm_title = None
         else:
-            title_candidate = base_title
+            llm_title = extract_document_title(
+                text=text[:2500],
+                fallback_title=base_title,
+                filename=filename
+            )
+
+            if is_safe_llm_title(llm_title):
+                title_candidate = llm_title
+            else:
+                title_candidate = rule_title
 
 
         # Step 2: ranker only refines (NOT overwrite blindly)
@@ -204,9 +215,9 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
             f"DOCTYPE: {doc_type} | TITLE: {title}"
         )
         # CHECK ONCE BEFORE ANY PROCESSING
-        if document_exists(pdf_url):
-            log_message("Already in RAG. Skipping full document.")
-            return False
+        # if document_exists(pdf_url):
+        #     log_message("Already in RAG. Skipping full document.")
+        #     return False
 
         chunks = chunk_text(text, chunk_size=400, overlap=80)
 
@@ -255,7 +266,7 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
 # ======================
 # HTML PROCESSING
 # ======================
-def process_html(title, url, soup):
+def process_html(title, url, soup, date=None):
     try:
         url = normalize_url(url)
         if not is_real_page(soup):
@@ -419,6 +430,27 @@ def process_html(title, url, soup):
                 log_message(f"Saved quick link: {page_title}")
 
                 break
+        
+        if doc_type == "admission":
+            save_admission(title, date, url, content[:3000])
+
+        elif doc_type == "activity_schedule":
+            save_activity_schedule(title, date, url, content[:3000])
+
+        elif doc_type == "fee":
+            save_fee_structure(title, url, content[:3000])
+
+        elif doc_type == "eligibility":
+            print("ELIGIBILITY PAGE DETECTED")
+
+            save_eligibility(title, date, url, content[:3000])
+
+        elif doc_type == "scholarship":
+            save_scholarship(title, url, content[:3000])
+
+        elif doc_type == "notice":
+            save_notice(title, url, content[:3000])
+    
         save_document(
             title=title,
             date=None,
@@ -427,12 +459,12 @@ def process_html(title, url, soup):
             doc_type=doc_type
         )
 
-        if doc_type == "notice":
-            save_notice(
-                title,
-                url,
-                content[:3000]
-            )
+        # if doc_type == "notice":
+        #     save_notice(
+        #         title,
+        #         url,
+        #         content[:3000]
+        #     )
 
         return True
 
@@ -542,7 +574,7 @@ def crawl_page(url, frontier):
 
         print("Final HTML Title:", title)
 
-        success=process_html(title, url, soup)
+        success=process_html(title, url, soup, datetime.now())
 
         if success:
             mark_visited(url)

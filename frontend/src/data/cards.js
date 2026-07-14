@@ -9,20 +9,20 @@ export const cardCategories = [
         type: "page",
         route: "/admission-updates",
       },
-      {
-        id: "activity_schedule",
-        title: "Activity Schedule",
-        icon: "📅",
-        type: "page",
-        route: "/activity-schedule",
-      },
-      {
-        id: "eligibility_criteria",
-        title: "Eligibility Criteria",
-        icon: "✅",
-        type: "page",
-        route: "/eligibility",
-      },
+      // {
+      //   id: "activity_schedule",
+      //   title: "Activity Schedule",
+      //   icon: "📅",
+      //   type: "page",
+      //   route: "/activity-schedule",
+      // },
+      // {
+      //   id: "eligibility_criteria",
+      //   title: "Eligibility Criteria",
+      //   icon: "✅",
+      //   type: "page",
+      //   route: "/eligibility",
+      // },
       {
         id: "fee_structure",
         title: "Fee Structure",
@@ -37,13 +37,13 @@ export const cardCategories = [
         type: "page",
         route: "/available-courses",
       },
-      {
-        id: "admission_committee",
-        title: "Admission Committee",
-        icon: "👨‍🏫",
-        type: "page",
-        route: "/admission-committee",
-      },
+      // {
+      //   id: "admission_committee",
+      //   title: "Admission Committee",
+      //   icon: "👨‍🏫",
+      //   type: "page",
+      //   route: "/admission-committee",
+      // },
       {
         id: "scholarships",
         title: "Scholarships",
@@ -58,7 +58,7 @@ export const cardCategories = [
         icon: "📝",
         type: "chat",
         question:
-          "Tell me about examinations, exam schedule, and examination guidelines.",
+          "Tell me about examinations.",
       },
       {
         id: "latest_notices",
@@ -130,10 +130,26 @@ export const cardCategories = [
         id: "contact_us",
         title: "Contact Us",
         icon: "📞",
-        type: "chat",
-        question:
-          "Provide the official contact details of the college.",
-      },
+        type: "static",
+        content: {
+          address:
+            "Government College for Women, M.A Road Srinagar",
+          phone:
+            "0194-2479432",
+          email:
+            "gcwmaroad@gmail.com",
+          timing:
+            "Monday - Saturday, 10 AM - 4 PM"
+        }
+      }
+      // {
+      //   id: "contact_us",
+      //   title: "Contact Us",
+      //   icon: "📞",
+      //   type: "page"
+      //   // question:
+      //   //   "Provide the official contact details of the college.",
+      // },
     ],
   },
 

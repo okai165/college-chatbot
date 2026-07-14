@@ -9,7 +9,9 @@ function FacultyManager() {
     faculty_name: "",
     subject_name: "",
     time_slot: "",
-    room_number: ""
+    room_number: "",
+    semester: ""
+    
   });
   const [departments, setDepartments] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState("");
@@ -98,7 +100,10 @@ function FacultyManager() {
             headers: {
               "Content-Type": "application/json"
             },
-            body: JSON.stringify(formData)
+            body: JSON.stringify({
+                ...formData,
+                department_id: selectedDepartment
+            })
           }
         );
 
@@ -127,7 +132,9 @@ function FacultyManager() {
         faculty_name: "",
         subject_name: "",
         time_slot: "",
-        room_number: ""
+        room_number: "",
+        semester: ""
+        
       });
 
       setEditingId(null);
@@ -173,7 +180,9 @@ function FacultyManager() {
       faculty_name: item.faculty_name,
       subject_name: item.subject_name,
       time_slot: item.time_slot,
-      room_number: item.room_number || ""
+      room_number: item.room_number || "",
+      semester: item.semester
+
     });
   };
 
@@ -237,6 +246,14 @@ function FacultyManager() {
               onChange={handleChange}
               style={inputStyle}
             />
+            
+            <input
+              name="semester"
+              placeholder="Semester"
+              value={formData.semester}
+              onChange={handleChange}
+              style={inputStyle}
+            />
 
             <button
               onClick={handleSubmit}
@@ -263,6 +280,7 @@ function FacultyManager() {
                 <th>Subject</th>
                 <th>Time Slot</th>
                 <th>Room</th>
+                <th>semester</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -303,8 +321,14 @@ function FacultyManager() {
                           textAlign: "center",
                           borderBottom: "1px solid #e5e7eb"
                       }} 
+                  >{item.semester}</td>
+                  <td style={{
+                          padding: "18px",
+                          textAlign: "center",
+                          borderBottom: "1px solid #e5e7eb"
+                      }}
                   >
-
+                  
                     <button
                       onClick={() => editFaculty(item)}
                       style={editButton}

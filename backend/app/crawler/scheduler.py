@@ -2,6 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 
 from app.crawler.frontier import URLFrontier
+from app.services.admission_scraper_service import run_admission_scraper
 from app.crawler.crawler import crawl_page, BASE_URL
 from app.crawler.state_store import init_db, clear_visited
 
@@ -79,7 +80,14 @@ def start_scheduler():
         id="college_crawler",
         replace_existing=True,
     )
-
+    scheduler.add_job(
+    run_admission_scraper,
+    trigger="interval",
+    hours=3,
+    next_run_time=datetime.now(),
+    id="admission_scraper",
+    replace_existing=True,
+    )
     print("JOB ADDED")
 
     scheduler.start()

@@ -1,125 +1,222 @@
 import re
 
 BAD_PATTERNS = [
-    "eligibility",
-    "programme",
-    "program",
-    "course",
     "pass out",
-    "intake",
     "major/minor",
     "s.no",
-    "table",
-    "semester",
-    "syllabus",
     "credit",
-    "subject",
-    "marks",
     "code",
-    "section",
+    "table",
 ]
 
+IGNORE_HEADERS = [
+    "government of jammu and kashmir",
+    "directorate of colleges",
+    "government college for women",
+    "constituent college of cluster university",
+    "office of the principal",
+    "m.a. road",
+    "naac",
+    "ugc",
+    "estd",
+]
 
-def score_title(t: str) -> int:
-    if not t:
-        return 0
+GENERIC_TITLES = {
+    "notice",
+    "notification",
+    "circular",
+    "important",
+    "information",
+    "about",
+    "about us",
+    "overview",
+    "home",
+    "gallery",
+}
 
-    t = re.sub(r"\s+", " ", t).strip()
+TITLE_KEYWORDS = {
+    "admission": 15,
+    "notification": 12,
+    "selection list": 12,
+    "merit list": 12,
 
-    # hard constraints
-    if len(t) < 10 or len(t) > 120:
-        return 0
+    "fee": 10,
+    "exam": 10,
+    "examination": 10,
+    "schedule": 10,
+    "timetable": 10,
+    "time table": 10,
+    "date sheet": 10,
 
-    low = t.lower()
+    "scholarship": 10,
 
-    # reject noisy patterns
-    if any(b in low for b in BAD_PATTERNS):
-        return 0
+    "library": 9,
+    "research": 9,
+    "innovation": 9,
+    "hostel": 9,
+    "grievance": 9,
+    "iqac": 9,
+    "nirf": 9,
+    "aqar": 9,
 
-    # reject table-like noise
-    if re.search(r"\b(\d+\s*/\s*\d+|page\s*\d+|row\s*\d+)\b", low):
-        return 0
+    "department": 8,
+    "faculty": 8,
+    "committee": 8,
+    "principal": 8,
+    "contact": 8,
+    "syllabus": 8,
+
+    "cell": 6,
+    "centre": 6,
+    "center": 6,
+    "laboratory": 6,
+    "course": 6,
+}
+
+
+def clean_title(title: str):
+    title = re.sub(r"\s+", " ", title).strip()
+
+    title = re.sub(
+        r"\s*\|\s*govt\.?.*$",
+        "",
+        title,
+        flags=re.I,
+    )
+
+    title = re.sub(
+        r"\s*[-–]\s*govt\.?.*$",
+        "",
+        title,
+        flags=re.I,
+    )
+
+    return title.strip()
+
+
+def score_title(title: str):
+
+    if not title:
+        return -100
+
+    title = clean_title(title)
+
+    if len(title) < 8 or len(title) > 120:
+        return -100
+
+    lower = title.lower()
+
+    if lower in GENERIC_TITLES:
+        return -100
+
+    if any(header in lower for header in IGNORE_HEADERS):
+        return -100
+
+    if any(pattern in lower for pattern in BAD_PATTERNS):
+        return -100
+
+    if re.search(r"\b(page\s*\d+|row\s*\d+)\b", lower):
+        return -100
 
     score = 0
 
-    # strong structural signal
-    if t.isupper():
+    words = len(title.split())
+
+    if 3 <= words <= 10:
         score += 4
 
-    # title-like keywords
-    title_keywords = {
-    "admission",
-    "notice",
-    "circular",
-    "result",
-    "fee",
-    "schedule",
-    "exam",
-    "department",
-    "principal",
-    "faculty",
-    "grievance",
-    "library",
-    "hostel",
-    "committee",
-    "iqac",
-    "nirf",
-    "aqar",
-    "scholarship",
-    "placement",
-    "syllabus",
-    "timetable",
-    "calendar",
-    "research",
-    "contact",
-    }
-    if any(word in low for word in title_keywords):
-        score += 8
-
-    # boost meaningful length (not too short, not too long)
-    word_count = len(t.split())
-    if 4 <= word_count <= 12:
+    elif 11 <= words <= 16:
         score += 2
+
+    if title.isupper():
+        score += 2
+
+    if ":" in title:
+        score += 2
+
+    if "-" in title:
+        score += 1
+
+    if re.search(r"\b20\d{2}\b", title):
+        score += 5
+
+    if re.search(r"\b202\d[-/]\d{2}\b", title):
+        score += 6
+
+    for keyword, weight in TITLE_KEYWORDS.items():
+        if keyword in lower:
+            score += weight
+
+    # Penalize vague "About ..." headings
+    if lower.startswith("about "):
+
+        score -= 5
+
+        # Unless it identifies something specific
+        if any(x in lower for x in [
+            "library",
+            "examination",
+            "scholarship",
+            "hostel",
+            "iqac",
+            "cell",
+            "committee",
+            "research",
+            "innovation",
+            "laboratory",
+        ]):
+            score += 6
 
     return score
 
 
-def extract_best_title(text: str, title: str = None):
+def extract_best_title(text: str, html_title=None):
+
     candidates = []
 
-    # 1. safe fallback first
-    if title:
-        candidates.append(title)
+    if html_title:
+        candidates.append(clean_title(html_title))
 
-    # 2. scan only structured early content (not raw spam lines)
-    lines = text.split("\n")
+    lines = text.splitlines()
 
-    for l in lines[:40]:
-        l = re.sub(r"\s+", " ", l).strip()
+    for line in lines[:50]:
 
-        if len(l) < 10:
+        line = clean_title(line)
+
+        if len(line) < 8:
             continue
 
-        if len(l) > 120:
+        if len(line) > 120:
             continue
 
-        # skip obvious noise
-        if re.search(r"\b(table|eligibility|course|department|intake|s\.no)\b", l.lower()):
+        lower = line.lower()
+
+        if lower in GENERIC_TITLES:
             continue
 
-        # skip numeric-heavy lines (tables)
-        if len(re.findall(r"\d", l)) > 6:
+        if any(header in lower for header in IGNORE_HEADERS):
             continue
 
-        candidates.append(l)
+        if re.search(
+            r"\b(table|eligibility|intake|s\.?no|roll no|credits?)\b",
+            lower,
+        ):
+            continue
+
+        digits = len(re.findall(r"\d", line))
+        if digits > len(line) * 0.4:
+            continue
+
+        candidates.append(line)
 
     best = None
-    best_score = 0
+    best_score = -100
 
-    for c in candidates:
-        s = score_title(c)
-        if s > best_score:
-            best = c
-            best_score = s
+    for candidate in dict.fromkeys(candidates):   # remove duplicates
+        score = score_title(candidate)
 
-    return best or title
+        if score > best_score:
+            best = candidate
+            best_score = score
+
+    return best if best else "Untitled"

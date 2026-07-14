@@ -1,24 +1,18 @@
-import { useNavigate } from "react-router-dom";
+import DataPage from "../components/DataPage";
+import { getEligibility } from "../services/api";
 
-export default function AdmissionUpdatesPage() {
+function EligibilityPage() {
 
-  const navigate = useNavigate();
+    return (
 
-  return (
-    <div className="page-container">
+        <DataPage
+            title="Eligibility Criteria"
+            subtitle="Eligibility requirements for admissions"
+            fetchFunction={getEligibility}
+        />
 
-      <button
-        onClick={() => navigate("/")}
-      >
-        ← Back
-      </button>
+    );
 
-      <h1>Eligibility Criteria</h1>
-
-      <p>
-        Admission notifications will appear here.
-      </p>
-
-    </div>
-  );
 }
+
+export default EligibilityPage;

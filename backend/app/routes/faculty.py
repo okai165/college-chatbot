@@ -34,7 +34,8 @@ def get_faculty(department_id: int = Query(...)):
             "faculty_name": row.faculty_name,
             "subject_name": row.subject_name,
             "time_slot": row.time_slot,
-            "room_number": row.room_number
+            "room_number": row.room_number,
+            "semester": row.semester
         })
 
     return faculty
@@ -56,6 +57,7 @@ def add_faculty(data: dict):
                     subject_name,
                     time_slot,
                     room_number,
+                    semester,
                     department_id
                 )
                 VALUES
@@ -64,6 +66,7 @@ def add_faculty(data: dict):
                     :subject_name,
                     :time_slot,
                     :room_number,
+                    :semester,
                     :department_id
                 )
             """),
@@ -72,6 +75,7 @@ def add_faculty(data: dict):
                 "subject_name": data["subject_name"],
                 "time_slot": data["time_slot"],
                 "room_number": data["room_number"],
+                "semester": data["semester"],
                 "department_id": data["department_id"]
             }
         )
@@ -118,6 +122,7 @@ def update_faculty(faculty_id: int, data: dict):
                     subject_name = :subject_name,
                     time_slot = :time_slot,
                     room_number = :room_number,
+                    semester=:semester,
                     department_id=:department_id
                 WHERE id = :id
             """),
@@ -127,6 +132,7 @@ def update_faculty(faculty_id: int, data: dict):
                 "subject_name": data["subject_name"],
                 "time_slot": data["time_slot"],
                 "room_number": data.get("room_number"),
+                "semester": data.get("semester"),
                 "department_id": data["department_id"]
             }
         )
