@@ -1,7 +1,29 @@
 from collections import defaultdict
 
+def calculate_confidence(score):
 
-def map_doc_type(url: str, title: str, content: str = "") -> str:
+    if score >= 80:
+        return 0.95
+
+    elif score >= 60:
+        return 0.85
+
+    elif score >= 40:
+        return 0.70
+
+    elif score >= 20:
+        return 0.50
+
+    else:
+        return 0.30
+def classification_result(dtype, score=100):
+
+    return {
+        "type": dtype,
+        "score": score,
+        "confidence": calculate_confidence(score)
+    }
+def map_doc_type(url: str, title: str, content: str = "") -> dict:
     url_lower = url.lower()
     title_lower = title.lower()
     content_lower = content[:10000].lower()
@@ -28,7 +50,7 @@ def map_doc_type(url: str, title: str, content: str = "") -> str:
 
     for module, dtype in MODULE_MAPPING.items():
         if module in url_lower:
-            return dtype
+            return classification_result(dtype, 100)
 
     EXACT_URLS = {
         "admissions.php": "admission",
@@ -38,13 +60,13 @@ def map_doc_type(url: str, title: str, content: str = "") -> str:
 
     for page, dtype in EXACT_URLS.items():
         if page in url_lower:
-            return dtype
+            return classification_result(dtype, 100)
 
     if "nirf" in url_lower:
-        return "nirf"
+        return classification_result("nirf",100)
 
     if "syllabus" in url_lower:
-        return "syllabus"
+        return classification_result("syllabus", 100)
 
     # ============================================================
     # 2. KEYWORD WEIGHTS
@@ -66,6 +88,26 @@ def map_doc_type(url: str, title: str, content: str = "") -> str:
             "registration process": 12,
             "fyugp": 12,
             "admission": 8,
+        },
+
+        "eligibility": {
+
+            "eligibility criteria": 22,
+            "admission eligibility": 22,
+            "minimum qualification": 20,
+            "required qualification": 20,
+            "who can apply": 18,
+            "admission criteria": 18,
+            "minimum marks": 16,
+            "required subjects": 16,
+            "eligible candidates": 16,
+            "eligibility": 10,
+            "eligible": 8,
+            "qualification": 8,
+            "criteria": 6,
+            "10+2": 12,
+            "graduation": 10,
+
         },
 
         "fee": {
@@ -251,8 +293,7 @@ def map_doc_type(url: str, title: str, content: str = "") -> str:
     # ============================================================
 
     if not scores:
-        return "general"
-
+        return classification_result("general", 0)
     ranking = sorted(
         scores.items(),
         key=lambda x: x[1],
@@ -263,13 +304,16 @@ def map_doc_type(url: str, title: str, content: str = "") -> str:
 
     # Too little evidence
     if best_score < 10:
-        return "general"
+        return classification_result("general", best_score)
 
     # If top two are very close, avoid guessing
     if len(ranking) > 1:
         second_score = ranking[1][1]
 
         if best_score - second_score < 5:
-            return "general"
+            return classification_result("general", best_score)
 
-    return best_type
+    return classification_result(
+        best_type,
+        best_score
+    )

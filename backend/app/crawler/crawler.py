@@ -206,13 +206,25 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
         except Exception as e:
             log_message(f"LLM cleaning skipped: {e}")
 
-        doc_type = map_doc_type(
+        classification = map_doc_type(
             pdf_url,
             title,
             text
         )
+
+        doc_type = classification["type"]
+        confidence = classification["confidence"]
+        score = classification["score"]
+
         log_message(
-            f"DOCTYPE: {doc_type} | TITLE: {title}"
+            f"""
+        DOCUMENT CLASSIFICATION
+
+        Title      : {title}
+        Type       : {doc_type}
+        Score      : {score}
+        Confidence : {confidence}
+        """
         )
         # CHECK ONCE BEFORE ANY PROCESSING
         # if document_exists(pdf_url):
@@ -388,13 +400,25 @@ def process_html(title, url, soup, date=None):
             log_message(f"Skipping HTML page because title is invalid: '{title}'")
             return False
 
-        doc_type = map_doc_type(
+        classification = map_doc_type(
             url,
             title,
             content
         )
+
+        doc_type = classification["type"]
+        confidence = classification["confidence"]
+        score = classification["score"]
+
         log_message(
-            f"DOCTYPE: {doc_type} | TITLE: {title}"
+            f"""
+        DOCUMENT CLASSIFICATION
+
+        Title      : {title}
+        Type       : {doc_type}
+        Score      : {score}
+        Confidence : {confidence}
+        """
         )
         SPECIAL_PAGES = {
             "student login": [
@@ -441,8 +465,7 @@ def process_html(title, url, soup, date=None):
             save_fee_structure(title, url, content[:3000])
 
         elif doc_type == "eligibility":
-            print("ELIGIBILITY PAGE DETECTED")
-
+            
             save_eligibility(title, date, url, content[:3000])
 
         elif doc_type == "scholarship":
