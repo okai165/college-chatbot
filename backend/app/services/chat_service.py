@@ -1,7 +1,9 @@
 from sqlalchemy import text
 from app.db.database import engine
 
-from app.rag.retriever import retrieve_similar_chunks
+from app.rag.retrieval_pipeline import (
+    retrieve_with_routing
+)
 from app.services.llm import generate_llm_response
 
 from app.rag.notification_retriever import search_notifications
@@ -265,7 +267,7 @@ def generate_response(user_query, session_id):
             intent=intent,
 
             subject=subject,
-            
+
             operation=analysis.get("operation"),
 
             session_id=session_id
@@ -279,16 +281,22 @@ def generate_response(user_query, session_id):
 
 
 
-
-
     # =========================
     # RAG RETRIEVAL
     # =========================
 
-    docs = retrieve_similar_chunks(
 
-        rewritten_query + " "
-        + (subject or ""),
+    query_text = (
+        rewritten_query
+        + " "
+        + (subject or "")
+    )
+
+
+
+    docs = retrieve_with_routing(
+
+        query=query_text,
 
         semester=analysis.get(
             "semester"
