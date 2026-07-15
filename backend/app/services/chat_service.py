@@ -13,6 +13,7 @@ from app.services.faculty_service import handle_faculty_query
 from app.services.quick_link_service import search_quick_link
 
 import time
+import re
 
 
 # =========================
@@ -200,7 +201,7 @@ def generate_response(user_query, session_id):
 
 
     is_followup = any(
-        word in query
+        re.search(rf"\b{re.escape(word)}\b", query)
         for word in FOLLOW_UP_WORDS
     )
 
@@ -286,10 +287,8 @@ def generate_response(user_query, session_id):
     # =========================
 
 
-    query_text = (
-        rewritten_query
-        + " "
-        + (subject or "")
+    query_text = " ".join(
+        filter(None, [rewritten_query, subject])
     )
 
 
@@ -307,7 +306,11 @@ def generate_response(user_query, session_id):
         )
 
     )
-
+    if not docs:
+        return (
+            "Sorry, I couldn't find relevant information "
+            "in the university documents."
+        )
     print("\n========== CONTEXT SENT TO LLM ==========\n")
 
     for i, (row, score) in enumerate(docs, start=1):
@@ -344,7 +347,7 @@ def generate_response(user_query, session_id):
         content = m.get("content")
 
         if content:
-            print(content[:400])
+            print(content[:300])
     # =========================
     # NOTIFICATIONS
     # =========================
@@ -376,36 +379,22 @@ def generate_response(user_query, session_id):
 
     context_chunks = []
 
-
-    for row, score in docs:
+    for i, (row, score) in enumerate(docs, start=1):
 
         m = row._mapping
 
         content = m.get("content")
 
-        if content:
+        if not content:
+            continue
 
-            context_chunks.append(
-                f"""
-    TITLE:
-    {m.get("title")}
+        context_chunks.append(
+            f"""
+        === PASSAGE {i} ===
 
-    DOCUMENT TYPE:
-    {m.get("doc_type")}
-
-    RERANK SCORE:
-    {float(score):.3f}
-
-    SOURCE:
-    {m.get("source_url")}
-
-    CONTENT:
-
-    {content.strip()}
-    """
-            )
-
-
+        {content[:3000].strip()}
+        """
+        )
     if not context_chunks:
 
         return (
@@ -458,25 +447,32 @@ def generate_response(user_query, session_id):
 You are an AI assistant for Cluster University.
 
 
-Instructions:
+Instructions
 
-1. The document context is already sorted by relevance.
+- The passages are ordered from most relevant to least relevant.
+- Use Passage 1 as the primary evidence.
+- Use later passages only if they add missing information.
+- Never mention passages, documents, chunks, filenames, titles, or internal metadata.
+- Answer naturally and directly.
+- Preserve exact facts such as eligibility criteria, dates, fees, and requirements.
+-You MUST answer ONLY using the provided passages.
 
-2. The FIRST document is the most relevant.
+If the answer exists anywhere in the passages,
+extract it.
 
-3. Use the FIRST document as your primary source.
+Never say the information is unavailable if the passages contain it.
 
-4. Only use later documents if the first document does not contain enough information.
+Do not use outside knowledge.
 
-5. Never replace specific information with generic information.
+If multiple passages exist,
+use Passage 1 first.
 
-6. If eligibility criteria are present, list them exactly as stated.
+If Passage 1 contains the answer,
+do not ignore it.
 
-7. Do not summarize generic admission instructions when a detailed eligibility table exists.
-
-8. If the answer is not in the context, reply:
+Only reply
 "I couldn't find that information in the university documents."
-
+if none of the passages contain the answer.
 
 --------------------
 
@@ -487,7 +483,7 @@ CHAT HISTORY:
 
 
 
-DOCUMENT CONTEXT:
+PASSAGES:
 
 {document_context}
 
@@ -500,8 +496,7 @@ NOTIFICATIONS:
 
 
 QUESTION:
-
-{user_query}
+{query}
 
 
 
@@ -515,6 +510,11 @@ ANSWER:
     # =========================
     # LLM CALL
     # =========================
+    print("\n" + "=" * 100)
+    print("PROMPT SENT TO LLM")
+    print("=" * 100)
+    print(prompt)
+    print("=" * 100 + "\n")
 
     for attempt in range(3):
 
