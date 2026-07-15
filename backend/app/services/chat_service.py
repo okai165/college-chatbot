@@ -15,7 +15,137 @@ from app.services.quick_link_service import search_quick_link
 import time
 import re
 
+# =========================
+# GREETING HANDLER
+# =========================
 
+# =========================
+# GREETING HANDLER
+# =========================
+
+def handle_greeting(query):
+
+    greetings = {
+
+        "hello": "Hello! 👋 How can I help you today?",
+        "hi": "Hi! 👋 How can I assist you?",
+        "hey": "Hey! 👋 What can I help you with?",
+
+        "good morning": "Good morning! ☀️ How can I help you today?",
+        "good afternoon": "Good afternoon! 😊 How can I assist you?",
+        "good evening": "Good evening! 🌙 How can I help you?",
+
+        "asalamualaikum": "Wa Alaikum Assalam! 😊 How can I help you today?",
+        "assalamualaikum": "Wa Alaikum Assalam! 😊 How can I help you today?",
+        "salam": "Wa Alaikum Assalam! 😊 How can I assist you?",
+
+        "bye": "Goodbye! 👋 Have a great day.",
+        "goodbye": "Goodbye! 👋 Take care."
+
+    }
+
+
+    # exact greeting
+    if query in greetings:
+        return greetings[query]
+
+
+    # allow small variations
+    words = query.split()
+
+    if len(words) <= 3:
+
+        for key, response in greetings.items():
+
+            if key in query:
+                return response
+
+
+    return None
+def handle_casual_query(query):
+
+    casual = {
+
+        "how are you":
+            "I am doing great! 😊 I am here to help you with college-related information.",
+
+        "how r u":
+            "I am doing great! 😊 How can I help you?",
+
+        "what are you":
+            "I am an AI assistant for Government College for Women, here to help with admissions, courses, notices, faculty information and other college queries.",
+
+        "who are you":
+            "I am the college AI assistant. I can help you find information about admissions, departments, courses, fees, notices and more.",
+
+        "are you there":
+            "Yes, I am here! 😊 How can I assist you?"
+
+    }
+
+
+    for key, response in casual.items():
+
+        if key in query:
+            return response
+
+
+    return None
+# =========================
+# ACKNOWLEDGEMENT HANDLER
+# =========================
+
+def handle_acknowledgement(query):
+
+    acknowledgements = {
+
+        "ok":
+            "Great! 😊 Let me know if you need any further help.",
+
+        "okay":
+            "Alright! 😊 Feel free to ask anything else.",
+
+        "alright":
+            "Perfect! 😊 I am here whenever you need assistance.",
+
+        "fine":
+            "Great! 😊 How can I help you further?",
+
+        "done":
+            "Great! ✅ Let me know if you need anything else.",
+
+        "nice":
+            "Thank you! 😊 I am happy to help.",
+
+        "great":
+            "Glad to hear that! 😊",
+
+        "good":
+            "Thank you! 😊 How can I assist you next?",
+
+        "perfect":
+            "Awesome! 😊 Let me know if you have more questions.",
+
+        "awesome":
+            "Thank you! 😊 Happy to help.",
+
+        "cool":
+            "Great! 😄 Feel free to ask anything.",
+
+        "got it":
+            "Perfect! 👍",
+
+        "understood":
+            "Great! 😊"
+
+    }
+
+
+    if query in acknowledgements:
+        return acknowledgements[query]
+
+
+    return None
 # =========================
 # CHAT MEMORY
 # =========================
@@ -101,6 +231,12 @@ def generate_response(user_query, session_id):
 
 
     query = user_query.lower().strip()
+    # =========================
+    # QUERY NORMALIZATION
+    # =========================
+
+    query = re.sub(r"\s+", " ", query)
+    query = query.strip("!?.,")
 
     notifications = []
 
@@ -110,22 +246,22 @@ def generate_response(user_query, session_id):
     # SMALL TALK
     # =========================
 
-    if query in [
-        "hi",
-        "hello",
-        "hey"
-    ]:
+    greeting_response = handle_greeting(query)
 
-        return "Hello! 👋 How can I help you today?"
+    if greeting_response:
+        return greeting_response
 
 
+    casual_response = handle_casual_query(query)
 
-    if query in [
-        "bye",
-        "goodbye"
-    ]:
+    if casual_response:
+        return casual_response
 
-        return "Goodbye! Have a great day."
+
+    ack_response = handle_acknowledgement(query)
+
+    if ack_response:
+        return ack_response
 
 
 
@@ -355,22 +491,19 @@ def generate_response(user_query, session_id):
     admission_keywords = [
 
         "admission",
-        "fee",
+        "apply",
+        "application",
         "eligibility",
-        "course"
+        "fee",
+        "cuet",
+        "selection",
+        "procedure"
 
     ]
 
 
-    if any(
-
-        k in rewritten_query.lower()
-
-        for k in admission_keywords
-
-    ):
-
-        notifications = search_notifications()
+    if any(k in rewritten_query.lower() for k in admission_keywords):
+        notifications = search_notifications(rewritten_query)
 
 
     # =========================
@@ -392,7 +525,7 @@ def generate_response(user_query, session_id):
             f"""
         === PASSAGE {i} ===
 
-        {content[:3000].strip()}
+        {content[:6000].strip()}
         """
         )
     if not context_chunks:
@@ -436,73 +569,45 @@ def generate_response(user_query, session_id):
 
 
 
-
-
     # =========================
     # FINAL PROMPT
     # =========================
 
     prompt = f"""
 
-You are an AI assistant for Cluster University.
+You are an AI assistant for Government College for Women.
 
 
-Instructions
+Rules:
 
-- The passages are ordered from most relevant to least relevant.
-- Use Passage 1 as the primary evidence.
-- Use later passages only if they add missing information.
-- Never mention passages, documents, chunks, filenames, titles, or internal metadata.
-- Answer naturally and directly.
-- Preserve exact facts such as eligibility criteria, dates, fees, and requirements.
--You MUST answer ONLY using the provided passages.
-
-If the answer exists anywhere in the passages,
-extract it.
-
-Never say the information is unavailable if the passages contain it.
-
-Do not use outside knowledge.
-
-If multiple passages exist,
-use Passage 1 first.
-
-If Passage 1 contains the answer,
-do not ignore it.
-
-Only reply
-"I couldn't find that information in the university documents."
-if none of the passages contain the answer.
-
---------------------
+- Answer ONLY using the official sources provided below.
+- Do not use outside knowledge.
+- If the answer exists in any source, extract it.
+- Do not say "information unavailable" when relevant information exists.
+- Do not mention documents, passages, chunks, sources, or retrieval.
+- Give a direct student-friendly answer.
 
 
-CHAT HISTORY:
-
-{history_text}
-
-
-
-PASSAGES:
+DOCUMENT PASSAGES:
 
 {document_context}
 
 
-
-NOTIFICATIONS:
+OFFICIAL NOTIFICATIONS:
 
 {notification_context}
 
 
-
 QUESTION:
-{query}
 
+{query}
 
 
 ANSWER:
 
 """
+    
+   
 
 
 
@@ -520,9 +625,13 @@ ANSWER:
 
         try:
 
-            return generate_llm_response(
-                prompt
-            )
+            response = generate_llm_response(prompt)
+
+            print("\n========== LLM RESPONSE ==========")
+            print(response)
+            print("==================================")
+
+            return response
 
 
         except Exception as e:

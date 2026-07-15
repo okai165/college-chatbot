@@ -115,6 +115,12 @@ Allowed intents:
 - innovation
 - general
 
+Intent priority rules:
+
+- If question contains scholarship-related words, intent MUST be "scholarship".
+- "apply" or "application" alone does not mean admission.
+- "how to apply for scholarship" is scholarship intent.
+- "scholarship application procedure" is scholarship intent.
 
 For faculty queries:
 
@@ -274,7 +280,47 @@ Return JSON ONLY.
                 result
             )
 
+            # =========================
+            # DOMAIN OVERRIDES
+            # =========================
 
+            query_lower = query.lower()
+
+
+            # Scholarship override
+            if any(word in query_lower for word in [
+                "scholarship",
+                "stipend",
+                "financial aid",
+                "nsp",
+                "fellowship",
+                "minority scholarship"
+            ]):
+
+                result["intent"] = "scholarship"
+
+
+
+            # Fee override
+            elif any(word in query_lower for word in [
+                "fee",
+                "fees",
+                "payment",
+                "tuition"
+            ]):
+
+                result["intent"] = "fee"
+
+
+
+            # Hostel override
+            elif any(word in query_lower for word in [
+                "hostel",
+                "accommodation",
+                "room allotment"
+            ]):
+
+                result["intent"] = "hostel"
 
             print(
                 "\n========== QUERY ANALYZER =========="
@@ -350,6 +396,7 @@ Return JSON ONLY.
                 ):
                     result["operation"] = "time"
 
+            print("FINAL INTENT:", result["intent"])
             return result
 
 

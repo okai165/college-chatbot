@@ -1,44 +1,42 @@
 import "./../styles/staticPopup.css";
 
 function StaticPopup({ selectedStaticCard, closePopup }) {
+  return (
+    <div className="static-popup">
+      <h2>{selectedStaticCard.title}</h2>
 
-    return (
-
-        <div className="static-popup">
-
-            <h2>
-                {selectedStaticCard.title}
-            </h2>
-
-
-            <p>
-                📍 {selectedStaticCard.content.address}
-            </p>
-
-
-            <p>
-                📞 {selectedStaticCard.content.phone}
-            </p>
-
+      {selectedStaticCard.type === "static" ? (
+        <>
+          <p>📍 {selectedStaticCard.content.address}</p>
+          <p>📞 {selectedStaticCard.content.phone}</p>
+          <p>✉️ {selectedStaticCard.content.email}</p>
+          <p>🕒 {selectedStaticCard.content.timing}</p>
+        </>
+      ) : (
+        selectedStaticCard.content.map((member, index) => (
+          <div key={index} className="committee-member">
+            <h4>{member.name}</h4>
 
             <p>
-                ✉️ {selectedStaticCard.content.email}
+              <strong>Role:</strong> {member.role}
             </p>
-
 
             <p>
-                🕒 {selectedStaticCard.content.timing}
+              <strong>Department:</strong> {member.department || "N/A"}
             </p>
 
+            {member.email && <p>✉️ {member.email}</p>}
 
-            <button onClick={closePopup}>
-                Close
-            </button>
+            {member.phone && <p>📞 {member.phone}</p>}
 
-        </div>
+            <hr />
+          </div>
+        ))
+      )}
 
-    );
+      <button onClick={closePopup}>Close</button>
+    </div>
+  );
 }
-
 
 export default StaticPopup;

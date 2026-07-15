@@ -51,7 +51,7 @@ def clean_faculty_query(query):
         "class",
         "room",
         "time",
-        "schedule"
+        "schedule",
         "of"
     ]
 
@@ -95,7 +95,7 @@ def search_faculty(query, semester=None):
     print("\nSEARCHING FACULTY:", query)
     print("SEMESTER:", semester)
 
-    query = query.lower().strip()
+    query = normalize_subject(query)
 
     with engine.connect() as conn:
 
@@ -110,8 +110,8 @@ def search_faculty(query, semester=None):
                 FROM faculty_schedule
                 WHERE
                 (
-                    LOWER(TRIM(subject_name)) LIKE :q
-                    OR LOWER(TRIM(faculty_name)) LIKE :q
+                    TRIM(subject_name) ILIKE :q
+                    OR TRIM(faculty_name) ILIKE :q
                 )
                 AND
                 (
@@ -170,9 +170,11 @@ def handle_faculty_query(
     ]
 
 
+    query_lower = query.lower()
+
     is_followup = any(
-        w in query.lower()
-        for w in followup_words
+        re.search(rf"\b{re.escape(word)}\b", query_lower)
+        for word in followup_words
     )
 
 
@@ -223,10 +225,9 @@ def handle_faculty_query(
 
     row = rows[0]
 
-    # Remember subject + semester
     last_subject_by_session[session_id] = {
-        "subject": search_term,
-        "semester": semester
+        "subject": row.subject_name,
+        "semester": row.semester
     }
     # --------------------------------------
     # Multiple semesters found

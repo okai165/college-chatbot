@@ -44,23 +44,13 @@ function ChatWidget() {
   // STATES
   // =========================
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  // const [chatOpen, setChatOpen] = useState(false);
-
-  // const [selectedCard, setSelectedCard] = useState(null);
-
-  // const [sidebarOpen, setSidebarOpen] =
-  //   useState(window.innerWidth > 768);
-
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] =
     useState(false);
-
   const [input, setInput] = useState("");
   const [chatVisible, setChatVisible] = useState(false);
   const [messages, setMessages] =
     useState([]);
-  // const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] =
     useState(false);
 
@@ -102,10 +92,34 @@ function ChatWidget() {
 
   const [currentChatId, setCurrentChatId] =
     useState("chat1");
+  const messagesEndRef = useRef(null);
 
-  const messagesEndRef =
-    useRef(null);
+  const chatBodyRef = useRef(null);
 
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const handleScroll = () => {
+
+    const container = chatBodyRef.current;
+
+    if (!container) return;
+
+
+    const bottom =
+      container.scrollHeight -
+      container.scrollTop -
+      container.clientHeight < 50;
+
+
+    setIsAtBottom(bottom);
+
+
+    if (bottom) {
+      setShowScrollButton(false);
+    }
+
+  };
   // =========================
   // SAVE TO LOCAL STORAGE
   // =========================
@@ -137,9 +151,11 @@ function ChatWidget() {
               alert(`${card.title} API will be connected in the next step.`);
 
               break;
+          
+            
 
           case "static":
-
+          case "committee":
               setSelectedStaticCard(card);
 
               break;
@@ -163,23 +179,23 @@ function ChatWidget() {
         setPendingQuestion(null);
     }
 }, [chatVisible, pendingQuestion]);
-  // useEffect(() => {
-  //   localStorage.removeItem("recentChats");
-  //   localStorage.removeItem("allChats");
-  //   setMessages([]);          // reset messages
-  // }, []); // run once on component mount
-
+  
   // =========================
   // AUTO SCROLL
   // =========================
 
   useEffect(() => {
 
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth"
-    });
+    if (isAtBottom) {
 
-  }, [messages, typingText]);
+        messagesEndRef.current?.scrollIntoView({
+            behavior:"smooth"
+        });
+
+    }
+
+  }, [messages]);
+    
 
   // =========================
   // LOAD CHAT
@@ -584,7 +600,7 @@ function ChatWidget() {
 
                 <h2>AI Assistant</h2>
 
-                <button onClick={() => setSidebarOpen(false)}>
+                <button className="close-sidebar" onClick={() => setSidebarOpen(false)}>
                     ✕
                 </button>
 
@@ -805,16 +821,20 @@ function ChatWidget() {
           {/* CHAT BODY */}
 
           <div
+            ref={chatBodyRef}
+
+            onScroll={handleScroll}
+
             style={{
               flex: 1,
 
-              overflowY:
-                "auto",
+              overflowY:"auto",
 
-              padding: "20px",
+              padding:"20px",
 
-              background:
-                colors.body
+              background:colors.body,
+
+              position:"relative"
             }}
           >
 
@@ -955,7 +975,48 @@ function ChatWidget() {
               </div>
             )}
 
+            {showScrollButton && (
 
+            <button
+              onClick={() => {
+
+                messagesEndRef.current?.scrollIntoView({
+                  behavior:"smooth"
+                });
+
+                setIsAtBottom(true);
+                setShowScrollButton(false);
+
+              }}
+
+              style={{
+                position:"absolute",
+
+                bottom:"20px",
+
+                right:"25px",
+
+                padding:"10px 15px",
+
+                borderRadius:"20px",
+
+                border:"none",
+
+                background:"#2563eb",
+
+                color:"white",
+
+                cursor:"pointer",
+
+                fontWeight:"600",
+
+                boxShadow:"0 5px 15px rgba(0,0,0,.2)"
+              }}
+            >
+              ↓ New messages
+            </button>
+
+            )}
 
             <div
               ref={

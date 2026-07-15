@@ -11,6 +11,7 @@ function AvailableCoursesPage(){
 
         getAvailableCourses()
         .then(data=>{
+            console.log("Courses API Response:", data);
             setCourses(data);
         });
 

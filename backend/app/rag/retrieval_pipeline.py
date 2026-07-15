@@ -9,13 +9,50 @@ def retrieve_with_routing(
     exam_type: str = None,
 ):
 
-    # First broad search
-    global_results = retrieve_global_chunks(
-        query=query,
-        semester=semester,
-        exam_type=exam_type,
-        limit=30
-    )
+    # =====================================================
+    # INTENT BASED ROUTING
+    # =====================================================
+
+    query_lower = query.lower()
+
+
+    admission_keywords = [
+        "admission",
+        "apply",
+        "application",
+        "cuet",
+        "procedure",
+        "eligibility",
+        "selection",
+        "merit",
+        "registration"
+    ]
+
+
+    if any(
+        word in query_lower
+        for word in admission_keywords
+    ):
+
+        print("FORCING ADMISSION SEARCH")
+
+        global_results = retrieve_global_chunks(
+            query=query,
+            doc_types=["admission"],
+            semester=semester,
+            exam_type=exam_type,
+            limit=30
+        )
+
+
+    else:
+
+        global_results = retrieve_global_chunks(
+            query=query,
+            semester=semester,
+            exam_type=exam_type,
+            limit=30
+        )
 
     if not global_results:
         return []

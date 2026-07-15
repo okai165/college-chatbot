@@ -110,6 +110,17 @@ def map_doc_type(url: str, title: str, content: str = "") -> dict:
 
         },
 
+        "notification": {
+
+            "admission notification": 25,
+            "notification": 15,
+            "important notice": 12,
+            "provisional selection": 20,
+            "selection list": 18,
+            "cuet": 18,
+            "last date": 12,
+        },
+
         "fee": {
             "fee structure": 20,
             "refund of fees": 18,
@@ -183,6 +194,8 @@ def map_doc_type(url: str, title: str, content: str = "") -> dict:
         },
 
         "iqac": {
+            "annual quality assurance report":30,
+             "aqar":30,
             "internal quality assurance cell": 25,
             "quality assurance": 15,
             "naac": 12,
@@ -247,11 +260,10 @@ def map_doc_type(url: str, title: str, content: str = "") -> dict:
         },
 
         "notice": {
-            "notice board": 18,
-            "notification": 12,
-            "announcement": 10,
-            "circular": 10,
-            "notice": 6,
+            "notice board":18,
+            "announcement":10,
+            "circular":10,
+            "notice":6,
         },
     }
 
