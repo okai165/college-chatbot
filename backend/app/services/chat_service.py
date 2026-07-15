@@ -308,10 +308,43 @@ def generate_response(user_query, session_id):
 
     )
 
+    print("\n========== CONTEXT SENT TO LLM ==========\n")
 
+    for i, (row, score) in enumerate(docs, start=1):
 
+        print(f"\nChunk {i}")
+        print("=" * 80)
 
+        m = row._mapping
 
+        print("TYPE:", type(row))
+
+        print(
+            "TITLE:",
+            m.get("title") or m.get("document_name")
+        )
+
+        print(
+            "DOC TYPE:",
+            m.get("doc_type")
+        )
+
+        print(
+            "SOURCE:",
+            m.get("source_url")
+        )
+
+        print(
+            "RERANK SCORE:",
+            round(float(score), 3)
+        )
+
+        print("\nCONTENT:")
+
+        content = m.get("content")
+
+        if content:
+            print(content[:400])
     # =========================
     # NOTIFICATIONS
     # =========================
@@ -337,23 +370,40 @@ def generate_response(user_query, session_id):
         notifications = search_notifications()
 
 
-
-
-
     # =========================
     # BUILD CONTEXT
     # =========================
 
-    context_chunks = [
+    context_chunks = []
 
-        r.content.strip()
 
-        for r in docs
+    for row, score in docs:
 
-        if r.content
+        m = row._mapping
 
-    ]
+        content = m.get("content")
 
+        if content:
+
+            context_chunks.append(
+                f"""
+    TITLE:
+    {m.get("title")}
+
+    DOCUMENT TYPE:
+    {m.get("doc_type")}
+
+    RERANK SCORE:
+    {float(score):.3f}
+
+    SOURCE:
+    {m.get("source_url")}
+
+    CONTENT:
+
+    {content.strip()}
+    """
+            )
 
 
     if not context_chunks:
@@ -364,11 +414,9 @@ def generate_response(user_query, session_id):
         )
 
 
-
     document_context = "\n\n".join(
         context_chunks
-    )[:12000]
-
+    )
 
 
     notification_context = "\n\n".join(
@@ -412,13 +460,22 @@ You are an AI assistant for Cluster University.
 
 Instructions:
 
-1. Answer ONLY from DOCUMENT CONTEXT and NOTIFICATIONS.
-2. Do not invent facts.
-3. If information is unavailable say:
+1. The document context is already sorted by relevance.
+
+2. The FIRST document is the most relevant.
+
+3. Use the FIRST document as your primary source.
+
+4. Only use later documents if the first document does not contain enough information.
+
+5. Never replace specific information with generic information.
+
+6. If eligibility criteria are present, list them exactly as stated.
+
+7. Do not summarize generic admission instructions when a detailed eligibility table exists.
+
+8. If the answer is not in the context, reply:
 "I couldn't find that information in the university documents."
-4. Prefer DOCUMENT CONTEXT over general knowledge.
-5. Use CHAT HISTORY only for resolving references.
-6. Answer naturally in 2-5 sentences.
 
 
 --------------------

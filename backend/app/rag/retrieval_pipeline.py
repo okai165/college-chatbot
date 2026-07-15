@@ -1,5 +1,6 @@
 from app.rag.retriever import retrieve_global_chunks
 from app.rag.doc_type_router import detect_doc_type
+from app.rag.reranker import rerank
 
 
 def retrieve_with_routing(
@@ -16,25 +17,14 @@ def retrieve_with_routing(
         limit=30
     )
 
-
     if not global_results:
         return []
 
-
     # Detect dominant document category
-    dominant_type = detect_doc_type(
-        global_results
-    )
+    dominant_type = detect_doc_type(global_results)
 
-
-    print(
-        "\n===== DOMINANT DOC TYPE ====="
-    )
-
-    print(
-        dominant_type
-    )
-
+    print("\n===== DOMINANT DOC TYPE =====")
+    print(dominant_type)
 
     # Second focused search
     if dominant_type:
@@ -44,10 +34,40 @@ def retrieve_with_routing(
             doc_types=[dominant_type],
             semester=semester,
             exam_type=exam_type,
-            limit=8
+            limit=30
+        )
+        if len(focused_results) < 5:
+            focused_results = global_results
+        # Rerank focused results
+        reranked = rerank(
+            query=query,
+            rows=focused_results,
+            top_k=5
         )
 
-        return focused_results
 
+        print("\n===== RERANKED RESULTS =====")
 
-    return global_results[:5]
+        for i, (row, score) in enumerate(reranked, start=1):
+
+            print("\nRank:", i)
+
+            print("TITLE:", row.title)
+
+            print("DOC TYPE:", row.doc_type)
+
+            print("RERANK SCORE:", round(score, 3))
+
+            print(
+                "CONTENT:",
+                row.content[:300]
+            )
+
+        return reranked
+
+    # Fallback
+    return rerank(
+        query=query,
+        rows=global_results,
+        top_k=5
+    )

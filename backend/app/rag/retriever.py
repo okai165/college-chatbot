@@ -1,6 +1,8 @@
 from sqlalchemy import text
 from app.db.database import engine
 from app.rag.embedder import generate_embedding
+from collections import defaultdict
+
 
 
 def retrieve_global_chunks(
@@ -8,7 +10,7 @@ def retrieve_global_chunks(
     doc_types: list = None,
     semester: str = None,
     exam_type: str = None,
-    limit: int = 30,
+    limit: int = 40,
 ):
     try:
 
@@ -58,6 +60,7 @@ def retrieve_global_chunks(
 
                     content,
                     document_name,
+                    document_name AS title,
                     source_url,
                     semester,
                     exam_type,
@@ -81,12 +84,12 @@ def retrieve_global_chunks(
 
                     (
                         0.7 *
-                        (
+                        GREATEST(
+                            0,
                             1 -
                             (
-                                embedding <-> 
-                                CAST(:query_embedding AS vector)
-                            )
+                                embedding <-> CAST(:query_embedding AS vector)
+                            )      
                         )
                         +
                         0.3 *
@@ -155,14 +158,14 @@ def retrieve_global_chunks(
 
         # keep only reliable results
 
-        HYBRID_THRESHOLD = 0.001
+        #HYBRID_THRESHOLD = 0.001
 
 
-        rows = [
-            r
-            for r in rows
-            if (r.hybrid_score or 0) >= HYBRID_THRESHOLD
-        ]
+        #rows = [
+        #    r
+        #    for r in rows
+        #    if (r.hybrid_score or 0) >= HYBRID_THRESHOLD
+        #]
 
 
         # final top chunks
@@ -171,9 +174,20 @@ def retrieve_global_chunks(
             rows,
             key=lambda x: x.hybrid_score or 0,
             reverse=True
-        )[:5]
+        )
 
+        unique = []
+        document_count = defaultdict(int)
 
+        for row in rows:
+
+            if document_count[row.document_name] >= 2:
+                continue
+
+            document_count[row.document_name] += 1
+            unique.append(row)
+
+        rows = unique
 
         print(
             "\n========== FINAL RETRIEVED CHUNKS ==========\n"
