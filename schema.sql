@@ -140,3 +140,14 @@ ADD COLUMN batch VARCHAR(50);
 
 ALTER TABLE documents
 ADD COLUMN issued_date DATE;
+
+ALTER TABLE documents
+ADD COLUMN content_hash VARCHAR(64);
+
+CREATE INDEX idx_documents_hash
+ON documents(content_hash);
+
+CREATE TABLE IF NOT EXISTS visited (
+    url TEXT PRIMARY KEY,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

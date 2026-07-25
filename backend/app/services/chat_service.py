@@ -11,141 +11,13 @@ from app.rag.query_analyzer import analyze_query
 
 from app.services.faculty_service import handle_faculty_query
 from app.services.quick_link_service import search_quick_link
-
+from app.handlers.greeting_handler import handle_greeting
+from app.handlers.casual_handler import handle_casual_query
+from app.handlers.acknowledgement_handler import handle_acknowledgement
+from app.handlers.farewell_handler import handle_farewell
 import time
 import re
 
-# =========================
-# GREETING HANDLER
-# =========================
-
-# =========================
-# GREETING HANDLER
-# =========================
-
-def handle_greeting(query):
-
-    greetings = {
-
-        "hello": "Hello! 👋 How can I help you today?",
-        "hi": "Hi! 👋 How can I assist you?",
-        "hey": "Hey! 👋 What can I help you with?",
-
-        "good morning": "Good morning! ☀️ How can I help you today?",
-        "good afternoon": "Good afternoon! 😊 How can I assist you?",
-        "good evening": "Good evening! 🌙 How can I help you?",
-
-        "asalamualaikum": "Wa Alaikum Assalam! 😊 How can I help you today?",
-        "assalamualaikum": "Wa Alaikum Assalam! 😊 How can I help you today?",
-        "salam": "Wa Alaikum Assalam! 😊 How can I assist you?",
-
-        "bye": "Goodbye! 👋 Have a great day.",
-        "goodbye": "Goodbye! 👋 Take care."
-
-    }
-
-
-    # exact greeting
-    if query in greetings:
-        return greetings[query]
-
-
-    # allow small variations
-    words = query.split()
-
-    if len(words) <= 3:
-
-        for key, response in greetings.items():
-
-            if key in query:
-                return response
-
-
-    return None
-def handle_casual_query(query):
-
-    casual = {
-
-        "how are you":
-            "I am doing great! 😊 I am here to help you with college-related information.",
-
-        "how r u":
-            "I am doing great! 😊 How can I help you?",
-
-        "what are you":
-            "I am an AI assistant for Government College for Women, here to help with admissions, courses, notices, faculty information and other college queries.",
-
-        "who are you":
-            "I am the college AI assistant. I can help you find information about admissions, departments, courses, fees, notices and more.",
-
-        "are you there":
-            "Yes, I am here! 😊 How can I assist you?"
-
-    }
-
-
-    for key, response in casual.items():
-
-        if key in query:
-            return response
-
-
-    return None
-# =========================
-# ACKNOWLEDGEMENT HANDLER
-# =========================
-
-def handle_acknowledgement(query):
-
-    acknowledgements = {
-
-        "ok":
-            "Great! 😊 Let me know if you need any further help.",
-
-        "okay":
-            "Alright! 😊 Feel free to ask anything else.",
-
-        "alright":
-            "Perfect! 😊 I am here whenever you need assistance.",
-
-        "fine":
-            "Great! 😊 How can I help you further?",
-
-        "done":
-            "Great! ✅ Let me know if you need anything else.",
-
-        "nice":
-            "Thank you! 😊 I am happy to help.",
-
-        "great":
-            "Glad to hear that! 😊",
-
-        "good":
-            "Thank you! 😊 How can I assist you next?",
-
-        "perfect":
-            "Awesome! 😊 Let me know if you have more questions.",
-
-        "awesome":
-            "Thank you! 😊 Happy to help.",
-
-        "cool":
-            "Great! 😄 Feel free to ask anything.",
-
-        "got it":
-            "Perfect! 👍",
-
-        "understood":
-            "Great! 😊"
-
-    }
-
-
-    if query in acknowledgements:
-        return acknowledgements[query]
-
-
-    return None
 # =========================
 # CHAT MEMORY
 # =========================
@@ -240,33 +112,27 @@ def generate_response(user_query, session_id):
 
     notifications = []
 
-
-
     # =========================
-    # SMALL TALK
+    # CONVERSATIONAL HANDLERS
     # =========================
 
-    greeting_response = handle_greeting(query)
+    handlers = [
 
-    if greeting_response:
-        return greeting_response
+        handle_greeting,
+        handle_farewell,
+        handle_casual_query,
+        handle_acknowledgement
 
-
-    casual_response = handle_casual_query(query)
-
-    if casual_response:
-        return casual_response
+    ]
 
 
-    ack_response = handle_acknowledgement(query)
+    for handler in handlers:
 
-    if ack_response:
-        return ack_response
+        response = handler(query)
 
-
-
-
-    # =========================
+        if response:
+            return response
+        # =========================
     # QUICK LINKS
     # =========================
 

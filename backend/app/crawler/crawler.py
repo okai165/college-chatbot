@@ -20,7 +20,6 @@ from app.db.notification_service import save_notification, notification_exists
 from app.rag.admission_ingest import save_document, document_exists
 from app.crawler.doc_type_mapper import map_doc_type
 from app.crawler.intelligence.content_extractor import extract_main_content, is_real_page
-from app.crawler.intelligence.document_router import route_document
 from app.crawler.intelligence.fetcher import fetch_html
 from app.crawler.url_normalizer import normalize_url
 from app.crawler.intelligence.llm_cleaner import clean_text_llm
@@ -242,7 +241,7 @@ def process_pdf(title, pdf_url, date=None, parent_url=None):
                 doc_type=doc_type
             )   
 
-        category = route_document(title, text)
+        category =doc_type
         log_message(f"CATEGORY: {category}")
 
         if category == "admission":

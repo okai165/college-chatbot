@@ -104,7 +104,41 @@ def parse_notice_metadata(text: str):
         ).date().isoformat()
 
     return metadata
+def extract_document_title(text: str, fallback_title: str = "Untitled"):
+    """
+    Extract a meaningful title from the beginning of a document.
+    """
 
+    ignore_phrases = [
+        "government of jammu and kashmir",
+        "directorate of colleges",
+        "government college for women",
+        "constituent college of cluster university",
+        "m.a road srinagar",
+        "naac accredited",
+        "estd.",
+        "page",
+    ]
+
+    for line in text.splitlines():
+
+        line = re.sub(r"\s+", " ", line).strip()
+
+        if len(line) < 10:
+            continue
+
+        lower = line.lower()
+
+        if any(phrase in lower for phrase in ignore_phrases):
+            continue
+
+        # Skip lines containing only numbers/symbols
+        if re.fullmatch(r"[\d\W]+", line):
+            continue
+
+        return line[:150]
+
+    return fallback_title
 def extract_text_with_metadata(pdf_path):
     text = extract_text_from_pdf(pdf_path)
     metadata = parse_notice_metadata(text)

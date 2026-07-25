@@ -45,14 +45,14 @@ def normalize_url(url: str) -> str:
         path = path.rstrip("/")
 
     # treat homepage and index pages as the same page
-    if path in ("", "/index.php", "/index.html"):
+    if path in ("", "/", "/index.php", "/index.html"):
         path = ""
 
     # Remove tracking/session parameters but keep important ones
     query_items = [
-        (k, v)
-        for k, v in parse_qsl(parsed.query)
-        if k.lower() not in TRACKING_PARAMS
+    (k.lower(), v)
+    for k, v in parse_qsl(parsed.query)
+    if k.lower() not in TRACKING_PARAMS
     ]
 
     # Sort remaining parameters

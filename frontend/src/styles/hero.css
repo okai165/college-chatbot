@@ -20,15 +20,3 @@
   border-radius: 30px;
   cursor: pointer;
 }
-.sidebar-close {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-
-    border: none;
-    background: transparent;
-    cursor: pointer;
-
-    font-size: 22px;
-    font-weight: bold;
-}

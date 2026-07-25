@@ -40,7 +40,22 @@ def handle_greeting(query):
         "Hello! 😊 How can I assist you?",
 
         "hi assistant":
-        "Hello! 😊 How can I assist you?"
+        "Hello! 😊 How can I assist you?",
+        
+        "hello bot":
+        "Hello! 👋 How can I help you?",
+
+        "hi bot":
+            "Hi! 😊 How can I assist you?",
+
+        "hey bot":
+            "Hey! 😊 What can I help you with?",
+
+        "hello assistant":
+            "Hello! 😊 How can I assist you?",
+
+        "hi assistant":
+            "Hi! 😊 How can I help you?"
 
     }
 
