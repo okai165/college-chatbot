@@ -1,21 +1,23 @@
 .static-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
 
-    width: 40%;
-    max-width: 700px;
+    position:relative;
 
-    max-height: 80vh;      /* Don't exceed 80% of screen height */
-    overflow-y: auto;      /* Vertical scroll */
+    z-index:100000;
 
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    background:white;
 
-    z-index: 1000;
+    width:90%;
+
+    max-width:600px;
+
+    max-height:80vh;
+
+    overflow-y:auto;
+
+    border-radius:16px;
+
+    padding:25px;
+
 }
 
 
@@ -59,4 +61,41 @@ cursor:pointer;
     padding: 10px 20px;
 
     z-index: 10;
+}
+.static-popup-overlay {
+    position: fixed;
+
+    top:0;
+    left:0;
+
+    width:100vw;
+    height:100vh;
+
+    display:flex;
+
+    justify-content:center;
+    align-items:center;
+
+    background:rgba(0,0,0,0.45);
+
+    z-index:99999;
+}
+@media(max-width:768px){
+
+.static-popup-overlay{
+
+    z-index:11000;
+
+}
+
+.static-popup{
+
+    width:95%;
+
+    max-height:85vh;
+
+    padding:18px;
+
+}
+
 }

@@ -41,7 +41,7 @@ def retrieve_with_routing(
             doc_types=["admission"],
             semester=semester,
             exam_type=exam_type,
-            limit=30
+            limit=15
         )
 
 
@@ -51,7 +51,7 @@ def retrieve_with_routing(
             query=query,
             semester=semester,
             exam_type=exam_type,
-            limit=30
+            limit=15
         )
 
     if not global_results:
@@ -71,7 +71,7 @@ def retrieve_with_routing(
             doc_types=[dominant_type],
             semester=semester,
             exam_type=exam_type,
-            limit=30
+            limit=15
         )
         if len(focused_results) < 5:
             focused_results = global_results

@@ -140,6 +140,8 @@ function ChatWidget() {
 
           case "chat":
 
+              setSidebarOpen(false);
+
               setChatVisible(true);
 
               setPendingQuestion(card.question);
@@ -1116,7 +1118,10 @@ function ChatWidget() {
     {!chatVisible && (
        <button
         className="chat-fab"
-        onClick={() => setChatVisible(true)}
+         onClick={() => {
+            setSidebarOpen(false);
+            setChatVisible(true);
+        }}
       >
         <div className="chat-icon">
           <span>G</span>

@@ -4,7 +4,7 @@ export const cardCategories = [
     cards: [
       {
         id: "admission_updates",
-        title: "Genaral notices",
+        title: "General notices",
         icon: "📢",
         type: "page",
         route: "/admission-updates",
@@ -105,13 +105,13 @@ export const cardCategories = [
         question:
           "Tell me about the campus facilities available in the college.",
       },
-      {
-        id: "events",
-        title: "Events & Workshops",
-        icon: "🎤",
-        type: "page",
-        route: "/events"
-      },
+      // {
+      //   id: "events",
+      //   title: "Events & Workshops",
+      //   icon: "🎤",
+      //   type: "page",
+      //   route: "/events"
+      // },
     ],
   },
 

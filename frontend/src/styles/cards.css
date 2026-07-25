@@ -1,24 +1,16 @@
 .sidebar{
-
     width:320px;
 
-    height:100vh;
-
-    background:#fff;
-
-    border-right:1px solid #ddd;
-
-    display:flex;
-
-    flex-direction:column;
+    height:100%;
 
     overflow-y:auto;
 
-    overflow-x:hidden;
+    background:white;
 
-    box-sizing:border-box;
+    border-right:1px solid #ddd;
 
     flex-shrink:0;
+    
 }
 .sidebar-header {
     position: sticky;

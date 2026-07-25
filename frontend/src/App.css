@@ -423,14 +423,16 @@ body {
 .app-layout{
     display:flex;
     width:100%;
-    height:100vh;
+    min-height:100vh;
+    height:100dvh;
 
-    /* padding:12px; */
     box-sizing:border-box;
 
     gap:12px;
 
     background:#f3f4f6;
+
+    overflow:hidden;
 }
 
 /* .sidebar{
@@ -454,15 +456,21 @@ body {
     background:white;
 
     border:1px solid #e5e7eb;
+
     border-radius:16px;
 
     display:flex;
+
     flex-direction:column;
 
     overflow:hidden;
-     margin:12px 12px 12px 0;
 
-    box-shadow:0 2px 10px rgba(0,0,0,0.05);
+    margin:12px;
+
+    box-shadow:
+    0 2px 10px rgba(0,0,0,0.05);
+
+    min-width:0;
 }
 /* .sidebar-header{
     padding:20px;
@@ -627,4 +635,208 @@ body {
     font-size:12px;
     color:rgba(255,255,255,0.9);
     margin-top:2px;
+}
+
+@media(max-width:768px){
+
+
+.app-layout{
+
+    display:block;
+
+    height:100dvh;
+
+}
+
+
+/* sidebar */
+
+.sidebar,
+.collapsed-sidebar{
+
+    width:100%;
+
+    height:auto;
+
+}
+
+
+/* chat full screen */
+
+.chat-container{
+
+    position:fixed;
+
+    inset:0;
+
+    margin:0;
+
+    border-radius:0;
+
+    z-index:5000;
+
+}
+
+
+/* chat header */
+
+.chat-container > div > div:first-child{
+
+    padding:12px !important;
+
+}
+
+
+/* hide long subtitle */
+
+.chat-subtitle{
+
+    display:none;
+
+}
+
+
+/* FAB */
+
+.chat-fab{
+
+    right:15px;
+
+    bottom:15px;
+
+    padding:8px;
+
+}
+
+
+.chat-icon{
+
+    width:48px;
+
+    height:48px;
+
+}
+
+
+.chat-content{
+
+    display:none;
+
+}
+
+
+
+/* messages */
+
+.chat-body{
+
+    padding:12px;
+
+}
+
+
+}
+@media(max-width:768px){
+
+
+.chat-input{
+
+font-size:16px !important;
+
+}
+
+
+.chat-container input{
+
+min-width:0;
+
+}
+
+
+.chat-container button{
+
+padding:10px 12px !important;
+
+}
+
+
+}
+@media(min-width:769px) and (max-width:1200px){
+
+
+.sidebar{
+
+width:260px;
+
+}
+
+
+.chat-container{
+
+margin:8px;
+
+}
+
+
+.chat-title{
+
+font-size:14px;
+
+}
+
+
+}
+@media(max-width:768px){
+
+.sidebar{
+
+position:fixed;
+
+top:0;
+left:0;
+
+width:100%;
+
+height:100dvh;
+
+z-index:6000;
+
+}
+
+}
+
+@media(max-width:768px){
+
+.sidebar{
+
+    position:fixed;
+
+    top:0;
+    left:0;
+
+    width:100%;
+    height:100dvh;
+
+    z-index:6000;
+
+}
+
+
+.chat-container{
+
+    position:fixed;
+
+    inset:0;
+
+    width:100%;
+    height:100dvh;
+
+    margin:0;
+
+    border-radius:0;
+
+    z-index:7000;
+
+}
+
 }
